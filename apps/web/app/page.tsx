@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { useAuth, SignInButton } from "@clerk/nextjs";
+import { useAuth, SignInButton, UserButton } from "@clerk/nextjs";
 import { ArrowUp, ChevronLeft, ChevronRight, ImagePlus, Plus, Star, X } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import { Card } from "@workspace/ui/components/card";
-import { Badge } from "@workspace/ui/components/badge";
 import { Dialog, DialogContent, DialogTitle } from "@workspace/ui/components/dialog";
 import { Sheet, SheetContent, SheetTitle } from "@workspace/ui/components/sheet";
 import { hashPin } from "@/lib/pin";
@@ -28,7 +27,9 @@ type DraftPhoto =
   | { kind: "new"; file: File; url: string };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS_FULL = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const DOW = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+const DOW_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const sameDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -281,18 +282,22 @@ export default function Page() {
   return (
     <div className="mx-auto w-full max-w-[1000px] pb-30">
       <header className="bg-background/80 sticky top-0 z-5 border-b border-transparent px-4 pt-3 pb-1 backdrop-blur-md sm:px-6">
-        <nav className="flex items-baseline gap-1 text-[13px] font-semibold">
+        <nav className="flex items-center justify-between gap-1 text-[13px] font-semibold">
+          <span className="flex items-baseline gap-1">
           <button className="text-muted-foreground cursor-pointer px-0.5" onClick={() => setView("year")}>
             {cursor.getFullYear()}
           </button>
           <span className="text-muted-foreground text-xs opacity-30">/</span>
           <button className="text-muted-foreground cursor-pointer px-0.5" onClick={() => setView("month")}>
-            {MONTHS[cursor.getMonth()]}
+            <span className="sm:hidden">{MONTHS[cursor.getMonth()]}</span>
+            <span className="hidden sm:inline">{MONTHS_FULL[cursor.getMonth()]}</span>
           </button>
           <span className="text-muted-foreground text-xs opacity-30">/</span>
           <button className="text-muted-foreground cursor-pointer px-0.5" onClick={() => setView("day")}>
             {cursor.getDate()}
           </button>
+          </span>
+          <UserButton appearance={{ elements: { avatarBox: "size-7" } }} />
         </nav>
         <div className="flex items-center justify-between py-2">
           <span className="flex gap-1.5">
@@ -309,7 +314,11 @@ export default function Page() {
             {view === "day"
               ? cursor.toDateString()
               : view === "month"
-                ? `${MONTHS[cursor.getMonth()]} ${cursor.getFullYear()}`
+                ? (<>
+                    <span className="sm:hidden">{MONTHS[cursor.getMonth()]}</span>
+                    <span className="hidden sm:inline">{MONTHS_FULL[cursor.getMonth()]}</span>
+                    {` ${cursor.getFullYear()}`}
+                  </>)
                 : view === "year"
                   ? cursor.getFullYear()
                   : `Important · ${importantNotes.length}`}
@@ -512,18 +521,20 @@ function DayRail({
     <div className="border-border relative ml-13 border-l">
       {Array.from({ length: 24 }, (_, h) => {
         const list = notes.filter((n) => new Date(n.createdAt).getHours() === h);
+        const isNow = isToday && h === nowH;
         return (
-          <div key={h} className="relative min-h-11 rounded-xl py-1.5 pr-0 pl-4">
+          <div key={h} className={`relative min-h-11 rounded-xl py-1.5 pr-3 pl-4 ${isNow ? "bg-muted/50" : ""}`}>
             <span className="text-muted-foreground absolute top-2 -left-13 w-9 text-right text-[11px] font-semibold tabular-nums">
               {fmtHour(h)}
             </span>
             <span
               className={`border-border absolute top-2.5 -left-1.5 size-3 rounded-full border-2 ${
-                list.length ? "bg-primary border-primary" : "bg-muted"
-              } ${isToday && h === nowH ? "border-destructive bg-transparent" : ""}`}
+                list.length || isNow ? "bg-primary border-primary" : "bg-muted"
+              }`}
             />
+            {isNow && <span className="sr-only">Current hour</span>}
             {!list.length && (
-              <div className="text-muted-foreground text-xs opacity-60">{h === nowH && isToday ? "now" : "—"}</div>
+              <div className="text-muted-foreground text-xs opacity-60">—</div>
             )}
             {list.map((n) => (
               <NoteCard key={n._id} note={n} onStar={onStar} onOpen={onOpen} onViewer={onViewer} />
@@ -535,39 +546,60 @@ function DayRail({
   );
 }
 
+function CountDots({ count }: { count: number }) {
+  return (
+    <span className="mt-1.5 flex items-center gap-1">
+      {Array.from({ length: Math.min(Math.max(count, 3), 5) }, (_, i) => (
+        <i key={i} className={`block size-1.5 rounded-full ${i < count ? "bg-primary" : "bg-border"}`} />
+      ))}
+    </span>
+  );
+}
+
 function MonthView({ cursor, notes, onDrill }: { cursor: Date; notes: Note[]; onDrill: (d: Date) => void }) {
   const y = cursor.getFullYear();
   const m = cursor.getMonth();
   const days = new Date(y, m + 1, 0).getDate();
   return (
-    <div>
+    <div className="border-border relative ml-13 border-l sm:ml-28">
       {Array.from({ length: days }, (_, k) => {
         const d = k + 1;
         const dt = new Date(y, m, d);
         const list = notes
           .filter((n) => sameDay(new Date(n.createdAt), dt))
           .sort((a, b) => a.createdAt - b.createdAt);
+        const isToday = sameDay(dt, new Date());
         return (
           <button
             key={d}
-            className="border-border grid w-full cursor-pointer grid-cols-[34px_1fr_auto] items-start gap-3 border-b py-2.5 text-left last:border-b-0"
+            className={`relative flex min-h-14 w-full cursor-pointer flex-col justify-center rounded-xl py-2 pr-3 pl-4 text-left ${isToday ? "bg-muted/50" : ""}`}
             onClick={() => onDrill(dt)}
           >
-            <span className="text-right text-lg leading-none font-bold tabular-nums">
-              {d}
-              <small className="text-muted-foreground mt-0.5 block text-[10px] font-semibold">{DOW[dt.getDay()] ?? ""}</small>
+            <span className="absolute top-2 -left-13 w-9 text-right sm:-left-28 sm:w-24">
+              <span className="block text-lg leading-none font-bold tabular-nums">{d}</span>
+              <small className="text-muted-foreground mt-0.5 block text-[10px] font-semibold">
+                <span className="sm:hidden">{DOW[dt.getDay()] ?? ""}</span>
+                <span className="hidden sm:inline">{DOW_FULL[dt.getDay()] ?? ""}</span>
+              </small>
             </span>
-            <span className="min-w-0">
-              <span className="text-muted-foreground block truncate text-[13px]">
-                {list.length ? ((list[0]?.body.trim() ? list[0]?.body : "photo")) : "—"}
+            <span
+              className={`border-border absolute top-2.5 -left-1.5 size-3 rounded-full border-2 ${
+                list.length || isToday ? "bg-primary border-primary" : "bg-muted"
+              }`}
+            />
+            <span className="flex items-start justify-between gap-3">
+              <span className="min-w-0">
+                <span className="text-muted-foreground block text-[13px] max-sm:truncate sm:line-clamp-3">
+                  {list.length ? ((list[0]?.body.trim() ? list[0]?.body : "photo")) : "—"}
+                </span>
+                <CountDots count={list.length} />
               </span>
-              <span className="mt-1.5 flex items-center gap-1">
-                {Array.from({ length: Math.min(Math.max(list.length, 3), 5) }, (_, i) => (
-                  <i key={i} className={`block size-1.5 rounded-full ${i < list.length ? "bg-primary" : "bg-border"}`} />
-                ))}
-              </span>
+              {list.length ? (
+                <span className="bg-muted text-muted-foreground mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums">
+                  {list.length} {list.length === 1 ? "note" : "notes"}
+                </span>
+              ) : null}
             </span>
-            <span className="text-muted-foreground text-[11px] tabular-nums">{list.length ? list.length : ""}</span>
           </button>
         );
       })}
@@ -580,39 +612,48 @@ function YearView({ cursor, notes, onDrill }: { cursor: Date; notes: Note[]; onD
   const counts = MONTHS.map(
     (_, i) => notes.filter((n) => { const d = new Date(n.createdAt); return d.getFullYear() === yr && d.getMonth() === i; }).length,
   );
-  const peak = Math.max(1, ...counts);
   const curM = new Date().getFullYear() === yr ? new Date().getMonth() : -1;
   return (
-    <div>
+    <div className="border-border relative ml-13 border-l sm:ml-28">
       {MONTHS.map((nm, i) => {
         const monthNotes = notes
           .filter((n) => { const d = new Date(n.createdAt); return d.getFullYear() === yr && d.getMonth() === i; })
           .sort((a, b) => a.createdAt - b.createdAt);
         const days = new Set(monthNotes.map((n) => new Date(n.createdAt).getDate())).size;
+        const isNow = i === curM;
         return (
           <button
             key={nm}
-            className="border-border grid w-full cursor-pointer grid-cols-[34px_1fr_auto] items-start gap-3 border-b py-2.5 text-left last:border-b-0"
+            className={`relative w-full cursor-pointer rounded-xl py-1.5 pr-3 pl-4 text-left ${isNow ? "bg-muted/50" : ""}`}
             onClick={() => onDrill(new Date(yr, i, 1))}
           >
-            <span className="text-right text-[13px] font-bold">
-              {nm}
+            <span className="absolute top-2 -left-13 w-9 text-right sm:-left-28 sm:w-24">
+              <span className="block text-[13px] font-bold">
+                <span className="sm:hidden">{nm}</span>
+                <span className="hidden sm:inline">{MONTHS_FULL[i] ?? nm}</span>
+              </span>
               <span className="text-muted-foreground block text-[10px] font-semibold">{String(yr).slice(2)}</span>
             </span>
-            <span className="min-w-0">
-              <span className="text-muted-foreground block truncate text-[13px]">
-                {monthNotes.length ? ((monthNotes[0]?.body.trim() ? monthNotes[0]?.body : "photo")) : "—"}
+            <span
+              className={`border-border absolute top-2.5 -left-1.5 size-3 rounded-full border-2 ${
+                monthNotes.length || isNow ? "bg-primary border-primary" : "bg-muted"
+              }`}
+            />
+            <span className="flex items-start justify-between gap-3">
+              <span className="min-w-0">
+                <span className="text-muted-foreground block text-[13px] max-sm:truncate sm:line-clamp-3">
+                  {monthNotes.length ? ((monthNotes[0]?.body.trim() ? monthNotes[0]?.body : "photo")) : "—"}
+                </span>
+                <CountDots count={counts[i] ?? 0} />
+                <span className="text-muted-foreground mt-1 block text-[11px] tabular-nums">
+                  {(counts[i] ?? 0) ? `${days} ${days === 1 ? "day" : "days"} · ${counts[i]} ${counts[i] === 1 ? "note" : "notes"}` : "empty"}
+                </span>
               </span>
-              <span className="bg-muted mt-2 block h-1 overflow-hidden rounded-full">
-                <i className="bg-primary block h-full rounded-full" style={{ width: `${Math.round(((counts[i] ?? 0) / peak) * 100)}%` }} />
-              </span>
-              <span className="text-muted-foreground mt-1 block text-[11px] tabular-nums">
-                {(counts[i] ?? 0) ? `${days}d, ${counts[i]}n` : "empty"}
-              </span>
-            </span>
-            <span className="flex flex-col items-end gap-1">
-              {i === curM && <span className="bg-destructive size-2 rounded-full" />}
-              {(counts[i] ?? 0) ? <Badge variant="secondary">{counts[i]}</Badge> : null}
+              {(counts[i] ?? 0) ? (
+                <span className="bg-muted text-muted-foreground mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums">
+                  {counts[i]} {counts[i] === 1 ? "note" : "notes"}
+                </span>
+              ) : null}
             </span>
           </button>
         );

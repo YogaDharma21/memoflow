@@ -12,6 +12,10 @@ const fontMono = Geist_Mono({
   variable: "--font-mono",
 });
 
+export const metadata = {
+  title: "MemoFlows",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -23,7 +27,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className={cn("antialiased", fontMono.variable, "font-sans", inter.variable)}
     >
-      <body>
+      <body suppressHydrationWarning>
         <ThemeProvider>
           <Providers>{children}</Providers>
         </ThemeProvider>
