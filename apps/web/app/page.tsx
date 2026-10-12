@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { useAuth, SignInButton } from "@clerk/nextjs";
+import { ArrowUp, ChevronLeft, ChevronRight, ImagePlus, Plus, Star, X } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import { Card } from "@workspace/ui/components/card";
 import { Badge } from "@workspace/ui/components/badge";
@@ -296,12 +297,12 @@ export default function Page() {
         <div className="flex items-center justify-between py-2">
           <span className="flex gap-1.5">
             {view !== "important" && view !== "year" && (
-              <Button size="sm" variant="secondary" onClick={() => drill(view === "day" ? "month" : "year")}>
-                Up
+              <Button size="sm" variant="secondary" onClick={() => drill(view === "day" ? "month" : "year")} aria-label="go up a level">
+                <ArrowUp className="size-4" />
               </Button>
             )}
             <Button size="sm" variant={view === "important" ? "default" : "secondary"} onClick={openImportant} aria-label="important notes">
-              Star
+              <Star className="size-4" fill={view === "important" ? "currentColor" : "none"} />
             </Button>
           </span>
           <span className="text-muted-foreground text-[13px] font-semibold">
@@ -316,8 +317,12 @@ export default function Page() {
           <span className="flex gap-1.5">
             {view !== "important" && (
               <>
-                <Button size="sm" variant="secondary" onClick={() => shift(-1)}>‹</Button>
-                <Button size="sm" variant="secondary" onClick={() => shift(1)}>›</Button>
+                <Button size="sm" variant="secondary" onClick={() => shift(-1)} aria-label="previous">
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => shift(1)} aria-label="next">
+                  <ChevronRight className="size-4" />
+                </Button>
               </>
             )}
           </span>
@@ -353,8 +358,8 @@ export default function Page() {
       )}
 
       <div className="pointer-events-none fixed inset-x-0 bottom-6 mx-auto w-full max-w-[1000px]">
-        <Button className="pointer-events-auto float-right mr-4 size-14 rounded-full text-2xl" onClick={openNew} aria-label="add note">
-          +
+        <Button className="pointer-events-auto float-right mr-4 size-14 rounded-full" onClick={openNew} aria-label="add note">
+          <Plus className="size-6" />
         </Button>
       </div>
 
@@ -383,17 +388,18 @@ export default function Page() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={p.url} alt="" className="h-full w-full object-cover" onClick={() => pickPhotos(i)} />
                 <button
-                  className="absolute top-0.5 right-0.5 size-5 rounded-full bg-black/65 text-xs text-white"
+                  className="absolute top-0.5 right-0.5 flex size-5 items-center justify-center rounded-full bg-black/65 text-white"
                   onClick={() => setDraftPhotos((prev) => prev.filter((_, j) => j !== i))}
                   aria-label="remove photo"
                 >
-                  ×
+                  <X className="size-3" />
                 </button>
               </div>
             ))}
           </div>
-          <button className="text-muted-foreground mt-2 text-[12.5px] font-semibold" onClick={() => pickPhotos(-1)}>
-            {draftPhotos.length ? `Photos · ${draftPhotos.length}` : "Photos"}
+          <button className="text-muted-foreground mt-2 flex items-center gap-1.5 text-[12.5px] font-semibold" onClick={() => pickPhotos(-1)}>
+            <ImagePlus className="size-4" />
+            {draftPhotos.length ? `${draftPhotos.length}` : "Photos"}
           </button>
           <Button className="mt-3 w-full" onClick={saveNote} disabled={saving}>
             {saving ? "Saving..." : "Save"}
@@ -461,7 +467,7 @@ function NoteCard({
           }}
           aria-label="toggle important"
         >
-          {note.important ? "★" : "☆"}
+          <Star className="size-3.5" fill={note.important ? "currentColor" : "none"} />
         </button>
       </div>
       {note.photoUrls.map((u, i) => (
@@ -666,30 +672,30 @@ function Viewer({ list, index, onClose, onNav }: { list: string[]; index: number
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <button className="absolute top-3 right-3 size-9 rounded-full border border-white/25 bg-white/10 text-[17px] text-white" onClick={onClose} aria-label="close viewer">
-        ×
+      <button className="absolute top-3 right-3 flex size-9 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white" onClick={onClose} aria-label="close viewer">
+        <X className="size-4" />
       </button>
       {list.length > 1 && (
         <>
           <button
-            className="absolute top-1/2 left-2.5 size-10 -translate-y-1/2 rounded-full border border-white/25 bg-white/10 text-lg text-white"
+            className="absolute top-1/2 left-2.5 flex size-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white"
             onClick={(e) => {
               e.stopPropagation();
               onNav((index - 1 + list.length) % list.length);
             }}
             aria-label="previous photo"
           >
-            ‹
+            <ChevronLeft className="size-5" />
           </button>
           <button
-            className="absolute top-1/2 right-2.5 size-10 -translate-y-1/2 rounded-full border border-white/25 bg-white/10 text-lg text-white"
+            className="absolute top-1/2 right-2.5 flex size-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white"
             onClick={(e) => {
               e.stopPropagation();
               onNav((index + 1) % list.length);
             }}
             aria-label="next photo"
           >
-            ›
+            <ChevronRight className="size-5" />
           </button>
         </>
       )}
