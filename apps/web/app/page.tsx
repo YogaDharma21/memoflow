@@ -107,6 +107,12 @@ export default function Page() {
     return () => window.removeEventListener("keydown", onKey);
   }, [shift, viewer, pinOpen, sheetOpen]);
 
+  // Switching views starts at the top. Day/Month/Year lists then jump to
+  // the current hour/day/month when it is visible, which runs after this.
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [view]);
+
   const askPin = useCallback(
     (mode: "set" | "check"): Promise<boolean> => {
       if (unlocked) return Promise.resolve(true);
@@ -259,7 +265,7 @@ export default function Page() {
     }
   };
 
-  if (!isLoaded) return <div className="mx-auto w-full max-w-[1000px] p-6 text-sm">Loading...</div>;
+  if (!isLoaded) return <PageSkeleton />;
   if (!isSignedIn)
     return (
       <div className="mx-auto flex w-full max-w-[1000px] flex-col items-center gap-3 p-6 text-sm">
@@ -348,10 +354,16 @@ export default function Page() {
           if (Math.abs(dx) > 48 && view !== "important") shift(dx < 0 ? 1 : -1);
         }}
       >
-        {view === "day" && <DayRail notes={dayNotes} cursor={cursor} onStar={toggleStar} onOpen={openEdit} onViewer={(l, i) => setViewer({ list: l, index: i })} />}
-        {view === "month" && <MonthView cursor={cursor} notes={all} onDrill={(d) => drill("day", d)} />}
-        {view === "year" && <YearView cursor={cursor} notes={all} onDrill={(d) => drill("month", d)} />}
-        {view === "important" && <ImportantView notes={importantNotes} onStar={toggleStar} onOpen={openEdit} onViewer={(l, i) => setViewer({ list: l, index: i })} />}
+        {notes === undefined ? (
+          <TimelineSkeleton />
+        ) : (
+          <>
+            {view === "day" && <DayRail notes={dayNotes} cursor={cursor} onStar={toggleStar} onOpen={openEdit} onViewer={(l, i) => setViewer({ list: l, index: i })} />}
+            {view === "month" && <MonthView cursor={cursor} notes={all} onDrill={(d) => drill("day", d)} />}
+            {view === "year" && <YearView cursor={cursor} notes={all} onDrill={(d) => drill("month", d)} />}
+            {view === "important" && <ImportantView notes={importantNotes} onStar={toggleStar} onOpen={openEdit} onViewer={(l, i) => setViewer({ list: l, index: i })} />}
+          </>
+        )}
       </main>
 
       {offToday && view !== "important" && (
@@ -414,7 +426,7 @@ export default function Page() {
             {saving ? "Saving..." : "Save"}
           </Button>
           {editId && (
-            <button className="text-destructive mt-1 w-full p-2 text-[13px] font-semibold opacity-75" onClick={deleteNote}>
+            <button className="text-destructive mt-1 w-full py-1 text-[13px] font-semibold opacity-75" onClick={deleteNote}>
               Delete note
             </button>
           )}
@@ -453,6 +465,55 @@ export default function Page() {
   );
 }
 
+function TimelineSkeleton() {
+  return (
+    <div className="border-border relative ml-13 border-l" aria-label="loading notes" aria-busy="true">
+      {Array.from({ length: 8 }, (_, h) => (
+        <div key={h} className="relative min-h-11 rounded-xl py-1.5 pr-3 pl-4">
+          <span className="bg-muted absolute top-2.5 -left-11 h-3 w-7 animate-pulse rounded" />
+          <span className="bg-muted absolute top-2.5 -left-1.5 size-3 animate-pulse rounded-full" />
+          {h % 3 === 0 ? (
+            <div className="border-border my-1.5 animate-pulse rounded-xl border p-3">
+              <div className="bg-muted h-3.5 w-3/4 rounded" />
+              <div className="bg-muted mt-2 h-3.5 w-1/2 rounded" />
+              <div className="bg-muted mt-2 h-2.5 w-24 rounded" />
+            </div>
+          ) : (
+            <div className="text-muted-foreground text-xs opacity-60">—</div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PageSkeleton() {
+  return (
+    <div className="mx-auto w-full max-w-[1000px] pb-30">
+      <header className="bg-background/80 sticky top-0 z-5 px-4 pt-3 pb-1 sm:px-6">
+        <nav className="flex items-center justify-between gap-1">
+          <div className="bg-muted h-4 w-28 animate-pulse rounded" />
+          <div className="bg-muted size-7 animate-pulse rounded-full" />
+        </nav>
+        <div className="flex items-center justify-between py-2">
+          <div className="flex gap-1.5">
+            <div className="bg-muted h-8 w-8 animate-pulse rounded-full" />
+            <div className="bg-muted h-8 w-8 animate-pulse rounded-full" />
+          </div>
+          <div className="bg-muted h-4 w-32 animate-pulse rounded" />
+          <div className="flex gap-1.5">
+            <div className="bg-muted h-8 w-8 animate-pulse rounded-full" />
+            <div className="bg-muted h-8 w-8 animate-pulse rounded-full" />
+          </div>
+        </div>
+      </header>
+      <main className="px-4 py-2 sm:px-6">
+        <TimelineSkeleton />
+      </main>
+    </div>
+  );
+}
+
 function NoteCard({
   note,
   onStar,
@@ -486,7 +547,7 @@ function NoteCard({
           src={u}
           alt=""
           loading="lazy"
-          className="mt-2 max-h-[60vh] w-full cursor-zoom-in rounded-lg object-cover"
+          className="mt-2 max-h-64 w-full cursor-zoom-in rounded-lg object-cover"
           onClick={(e) => {
             e.stopPropagation();
             onViewer(note.photoUrls, i);
@@ -517,13 +578,21 @@ function DayRail({
 }) {
   const nowH = new Date().getHours();
   const isToday = sameDay(cursor, new Date());
+  const nowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    nowRef.current?.scrollIntoView({ block: "center" });
+  }, [cursor]);
   return (
     <div className="border-border relative ml-13 border-l">
       {Array.from({ length: 24 }, (_, h) => {
         const list = notes.filter((n) => new Date(n.createdAt).getHours() === h);
         const isNow = isToday && h === nowH;
         return (
-          <div key={h} className={`relative min-h-11 rounded-xl py-1.5 pr-3 pl-4 ${isNow ? "bg-muted/50" : ""}`}>
+          <div
+            key={h}
+            ref={isNow ? nowRef : undefined}
+            className={`relative min-h-11 scroll-mt-28 rounded-xl py-1.5 pr-3 pl-4 ${isNow ? "bg-muted/50" : ""}`}
+          >
             <span className="text-muted-foreground absolute top-2 -left-13 w-9 text-right text-[11px] font-semibold tabular-nums">
               {fmtHour(h)}
             </span>
@@ -560,6 +629,10 @@ function MonthView({ cursor, notes, onDrill }: { cursor: Date; notes: Note[]; on
   const y = cursor.getFullYear();
   const m = cursor.getMonth();
   const days = new Date(y, m + 1, 0).getDate();
+  const todayRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    todayRef.current?.scrollIntoView({ block: "center" });
+  }, [cursor]);
   return (
     <div className="border-border relative ml-13 border-l sm:ml-28">
       {Array.from({ length: days }, (_, k) => {
@@ -572,7 +645,8 @@ function MonthView({ cursor, notes, onDrill }: { cursor: Date; notes: Note[]; on
         return (
           <button
             key={d}
-            className={`relative flex min-h-14 w-full cursor-pointer flex-col justify-center rounded-xl py-2 pr-3 pl-4 text-left ${isToday ? "bg-muted/50" : ""}`}
+            ref={isToday ? todayRef : undefined}
+            className={`relative flex min-h-14 w-full scroll-mt-28 cursor-pointer flex-col justify-center rounded-xl py-2 pr-3 pl-4 text-left ${isToday ? "bg-muted/50" : ""}`}
             onClick={() => onDrill(dt)}
           >
             <span className="absolute top-2 -left-13 w-9 text-right sm:-left-28 sm:w-24">
@@ -613,6 +687,10 @@ function YearView({ cursor, notes, onDrill }: { cursor: Date; notes: Note[]; onD
     (_, i) => notes.filter((n) => { const d = new Date(n.createdAt); return d.getFullYear() === yr && d.getMonth() === i; }).length,
   );
   const curM = new Date().getFullYear() === yr ? new Date().getMonth() : -1;
+  const nowRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    nowRef.current?.scrollIntoView({ block: "center" });
+  }, [cursor]);
   return (
     <div className="border-border relative ml-13 border-l sm:ml-28">
       {MONTHS.map((nm, i) => {
@@ -624,7 +702,8 @@ function YearView({ cursor, notes, onDrill }: { cursor: Date; notes: Note[]; onD
         return (
           <button
             key={nm}
-            className={`relative w-full cursor-pointer rounded-xl py-1.5 pr-3 pl-4 text-left ${isNow ? "bg-muted/50" : ""}`}
+            ref={isNow ? nowRef : undefined}
+            className={`relative w-full scroll-mt-28 cursor-pointer rounded-xl py-1.5 pr-3 pl-4 text-left ${isNow ? "bg-muted/50" : ""}`}
             onClick={() => onDrill(new Date(yr, i, 1))}
           >
             <span className="absolute top-2 -left-13 w-9 text-right sm:-left-28 sm:w-24">
@@ -690,11 +769,22 @@ function Viewer({ list, index, onClose, onNav }: { list: string[]; index: number
   const pts = useRef(new Map<number, [number, number]>());
   const pinchD = useRef(0);
   const lastTap = useRef(0);
+  const src = list[index] ?? "";
 
   useEffect(() => {
     setZoom(1);
     setPan([0, 0]);
+    pts.current.clear();
+    pinchD.current = 0;
   }, [index, list]);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -708,18 +798,18 @@ function Viewer({ list, index, onClose, onNav }: { list: string[]; index: number
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/92 touch-none"
+      className="fixed inset-0 z-50 flex flex-col bg-black/90 p-4 backdrop-blur-sm touch-none sm:p-10"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <button className="absolute top-3 right-3 flex size-9 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white" onClick={onClose} aria-label="close viewer">
+      <button className="absolute top-3 right-3 z-10 flex size-9 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white" onClick={onClose} aria-label="close viewer">
         <X className="size-4" />
       </button>
       {list.length > 1 && (
         <>
           <button
-            className="absolute top-1/2 left-2.5 flex size-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white"
+            className="absolute top-1/2 left-2.5 z-10 flex size-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white"
             onClick={(e) => {
               e.stopPropagation();
               onNav((index - 1 + list.length) % list.length);
@@ -729,7 +819,7 @@ function Viewer({ list, index, onClose, onNav }: { list: string[]; index: number
             <ChevronLeft className="size-5" />
           </button>
           <button
-            className="absolute top-1/2 right-2.5 flex size-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white"
+            className="absolute top-1/2 right-2.5 z-10 flex size-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white"
             onClick={(e) => {
               e.stopPropagation();
               onNav((index + 1) % list.length);
@@ -740,18 +830,25 @@ function Viewer({ list, index, onClose, onNav }: { list: string[]; index: number
           </button>
         </>
       )}
+      <div
+        className="flex min-h-0 flex-1 items-center justify-center"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={list[index]}
+        src={src}
         alt=""
-        className="max-h-full max-w-full object-contain"
+        draggable={false}
+        className="max-h-[82vh] max-w-[92vw] object-contain rounded-lg shadow-2xl select-none sm:max-w-[78vw]"
         style={{ transform: `translate(${pan[0]}px,${pan[1]}px) scale(${zoom})` }}
+        onClick={(e) => e.stopPropagation()}
         onDoubleClick={() => {
           setZoom((z) => (z > 1 ? 1 : 2.5));
           setPan([0, 0]);
         }}
         onWheel={(e) => {
-          e.preventDefault();
           setZoom((z) => Math.min(4, Math.max(1, z + (e.deltaY < 0 ? 0.25 : -0.25))));
         }}
         onTouchEnd={() => {
@@ -796,6 +893,7 @@ function Viewer({ list, index, onClose, onNav }: { list: string[]; index: number
           if (pts.current.size < 2) pinchD.current = 0;
         }}
       />
+      </div>
       <div className="absolute bottom-3.5 left-1/2 -translate-x-1/2 text-xs text-white/70 tabular-nums">
         {list.length > 1 ? `${index + 1} / ${list.length}` : ""}
       </div>
