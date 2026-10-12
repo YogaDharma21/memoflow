@@ -295,9 +295,11 @@ export default function Page() {
         </nav>
         <div className="flex items-center justify-between py-2">
           <span className="flex gap-1.5">
-            <Button size="sm" variant="secondary" onClick={() => drill(view === "day" ? "month" : "year")}>
-              Up
-            </Button>
+            {view !== "important" && view !== "year" && (
+              <Button size="sm" variant="secondary" onClick={() => drill(view === "day" ? "month" : "year")}>
+                Up
+              </Button>
+            )}
             <Button size="sm" variant={view === "important" ? "default" : "secondary"} onClick={openImportant} aria-label="important notes">
               Star
             </Button>
