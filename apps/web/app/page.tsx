@@ -280,7 +280,7 @@ export default function Page() {
 
   return (
     <div className="mx-auto w-full max-w-[1000px] pb-30">
-      <header className="bg-background/80 sticky top-0 z-5 border-b border-transparent px-4 pt-3 pb-1 backdrop-blur-md">
+      <header className="bg-background/80 sticky top-0 z-5 border-b border-transparent px-4 pt-3 pb-1 backdrop-blur-md sm:px-6">
         <nav className="flex items-baseline gap-1 text-[13px] font-semibold">
           <button className="text-muted-foreground cursor-pointer px-0.5" onClick={() => setView("year")}>
             {cursor.getFullYear()}
@@ -330,7 +330,7 @@ export default function Page() {
       </header>
 
       <main
-        className="px-4 py-2"
+        className="px-4 py-2 sm:px-6"
         onTouchStart={(e) => {
           touchX.current = e.changedTouches[0]?.clientX ?? 0;
         }}
@@ -477,7 +477,7 @@ function NoteCard({
           src={u}
           alt=""
           loading="lazy"
-          className="mt-2 w-full cursor-zoom-in rounded-lg"
+          className="mt-2 max-h-[60vh] w-full cursor-zoom-in rounded-lg object-cover"
           onClick={(e) => {
             e.stopPropagation();
             onViewer(note.photoUrls, i);
