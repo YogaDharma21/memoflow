@@ -29,6 +29,21 @@
 
 - After grill-with-docs or grill-me, end with summary of shared understanding. Then ask which skill runs next.
 
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five labels as-is. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context with root GLOSSARY.md + docs/adr. See `docs/agents/domain.md`.
+
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
