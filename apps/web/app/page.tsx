@@ -1,4 +1,5 @@
 "use client"
+import { LandingPage } from "@/components/landing-page"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useMutation, useQuery } from "convex/react"
@@ -364,16 +365,7 @@ export default function Page() {
   }
 
   if (!isLoaded) return <PageSkeleton />
-  if (!isSignedIn)
-    return (
-      <div className="mx-auto flex w-full max-w-[1000px] flex-col items-center gap-3 p-6 text-sm">
-        <h1 className="font-medium">memoflows</h1>
-        <p className="text-muted-foreground">Sign in to see your notes.</p>
-        <SignInButton mode="modal">
-          <Button>Sign in</Button>
-        </SignInButton>
-      </div>
-    )
+  if (!isSignedIn) return <LandingPage />
 
   const dayNotes = all
     .filter((n) => sameDay(new Date(n.createdAt), cursor))
