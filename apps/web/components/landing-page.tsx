@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { SignInButton } from "@clerk/nextjs"
 import { useTheme } from "next-themes"
 import {
@@ -8,25 +9,21 @@ import {
   Calendar,
   Check,
   Clock,
-  Eye,
-  Heart,
   ImagePlus,
   Lock,
   Moon,
   Shield,
-  Sparkles,
   Star,
   Sun,
   Layers,
   ChevronRight,
-  CheckCircle2,
+  Search,
 } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
-import { Badge } from "@workspace/ui/components/badge"
 import { Card, CardContent } from "@workspace/ui/components/card"
 
 export function LandingPage() {
-  const { theme, setTheme, resolvedTheme } = useTheme()
+  const { setTheme, resolvedTheme } = useTheme()
   const [activeTab, setActiveTab] = useState<"day" | "month" | "year" | "important">("day")
 
   const toggleTheme = () => {
@@ -34,29 +31,20 @@ export function LandingPage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-background text-foreground antialiased selection:bg-primary/10 selection:text-primary">
-      {/* Background subtle ambient aura */}
-      <div
-        className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
-        aria-hidden="true"
-      >
-        <div className="absolute -top-40 left-1/2 h-[500px] w-[800px] -translate-x-1/2 rounded-full bg-primary/5 blur-[120px] dark:bg-primary/10" />
-        <div className="absolute top-[40%] right-[-100px] h-[350px] w-[500px] rounded-full bg-accent/40 blur-[100px] dark:bg-accent/15" />
-      </div>
-
+    <div className="relative min-h-screen bg-background text-foreground antialiased selection:bg-muted selection:text-foreground">
       {/* Top Navigation */}
       <header className="sticky top-0 z-30 border-b border-border/40 bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground font-semibold shadow-xs">
-              <span className="text-base tracking-tighter">m</span>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-lg font-semibold tracking-tight">memoflows</span>
-              <Badge variant="outline" className="hidden text-[10px] sm:inline-flex py-0 px-1.5 font-normal text-muted-foreground border-border/60">
-                timeline journal
-              </Badge>
-            </div>
+        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
+          <div className="flex items-center gap-2.5">
+            <Image
+              src="/logo.png"
+              alt="memoflows"
+              width={26}
+              height={26}
+              className="size-6.5 rounded-md object-contain"
+              priority
+            />
+            <span className="text-base font-semibold tracking-tight">memoflows</span>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
@@ -64,7 +52,7 @@ export function LandingPage() {
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
-              className="size-9 rounded-lg text-muted-foreground hover:text-foreground"
+              className="size-8.5 rounded-lg text-muted-foreground hover:text-foreground"
               aria-label="Toggle theme"
             >
               {resolvedTheme === "dark" ? (
@@ -91,16 +79,10 @@ export function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <main className="mx-auto max-w-6xl px-4 pt-12 pb-20 sm:px-6 sm:pt-20">
+      <main className="mx-auto max-w-5xl px-4 pt-14 pb-20 sm:px-6 sm:pt-20">
         <div className="flex flex-col items-center text-center">
-          {/* Badge pill */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-muted/40 px-3.5 py-1 text-xs font-medium text-muted-foreground shadow-xs backdrop-blur-xs">
-            <Sparkles className="size-3.5 text-primary" />
-            <span>Personal timeline journal · Private by design</span>
-          </div>
-
           {/* Main heading */}
-          <h1 className="mt-6 max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl md:text-6xl text-balance">
+          <h1 className="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl md:text-6xl text-balance">
             Your life in a continuous flow of moments.
           </h1>
 
@@ -128,30 +110,30 @@ export function LandingPage() {
             </a>
           </div>
 
-          {/* Feature pill badges */}
+          {/* Feature highlights line */}
           <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
-              <Check className="size-3.5 text-primary" />
+              <Check className="size-3.5 text-muted-foreground" />
               <span>No clutter or social feeds</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Check className="size-3.5 text-primary" />
+              <Check className="size-3.5 text-muted-foreground" />
               <span>PIN-protected important notes</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Check className="size-3.5 text-primary" />
+              <Check className="size-3.5 text-muted-foreground" />
               <span>Fast photo attachments</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Check className="size-3.5 text-primary" />
-              <span>Real-time sync</span>
+              <Check className="size-3.5 text-muted-foreground" />
+              <span>Real-time cloud sync</span>
             </div>
           </div>
         </div>
 
         {/* Interactive App Preview Section */}
         <section id="preview" className="mt-16 sm:mt-24 scroll-mt-20">
-          <div className="relative mx-auto max-w-4xl rounded-2xl border border-border/80 bg-card p-2 sm:p-4 shadow-xl ring-1 ring-border/20">
+          <div className="relative mx-auto max-w-4xl rounded-xl border border-border bg-card p-2 sm:p-4 shadow-sm">
             {/* Window bar mockup */}
             <div className="mb-3 flex items-center justify-between border-b border-border/40 pb-2.5 px-2">
               <div className="flex items-center gap-2">
@@ -162,27 +144,25 @@ export function LandingPage() {
                   memoflows.app / timeline
                 </span>
               </div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Badge variant="secondary" className="text-[11px] font-normal py-0">
-                  Interactive Preview
-                </Badge>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground font-mono">
+                Interactive Preview
               </div>
             </div>
 
             {/* Inner App Container Mock */}
-            <div className="rounded-xl border border-border/60 bg-background/60 p-4 sm:p-6 backdrop-blur-xs">
+            <div className="rounded-lg border border-border/50 bg-background/50 p-4 sm:p-6">
               {/* Timeline Header Bar */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-4">
                 <div className="flex items-baseline gap-1.5 text-sm font-semibold">
                   <span className="text-muted-foreground">2026</span>
-                  <span className="text-muted-foreground opacity-40">/</span>
+                  <span className="text-muted-foreground opacity-30">/</span>
                   <span className="text-muted-foreground">October</span>
-                  <span className="text-muted-foreground opacity-40">/</span>
+                  <span className="text-muted-foreground opacity-30">/</span>
                   <span className="text-foreground">22</span>
                 </div>
 
                 {/* View switcher tabs */}
-                <div className="flex items-center gap-1 rounded-lg bg-muted/60 p-1 text-xs">
+                <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-1 text-xs">
                   <button
                     onClick={() => setActiveTab("day")}
                     className={`rounded-md px-2.5 py-1 font-medium transition-all cursor-pointer ${
@@ -240,12 +220,12 @@ export function LandingPage() {
                     <div className="relative pl-6 sm:pl-8 before:absolute before:left-2 sm:before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-border">
                       {/* Note 1 */}
                       <div className="relative mb-6">
-                        <div className="absolute -left-6 sm:-left-8 top-1.5 size-2.5 rounded-full border-2 border-background bg-primary ring-2 ring-primary/20" />
+                        <div className="absolute -left-6 sm:-left-8 top-1.5 size-2 rounded-full border border-background bg-foreground" />
                         <Card className="border-border/60 bg-card/70 hover:bg-card transition-colors">
                           <CardContent className="p-3.5 sm:p-4">
                             <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
                               <span className="font-mono font-medium">08:45 AM</span>
-                              <Badge variant="outline" className="text-[10px] py-0">Morning Reflection</Badge>
+                              <span className="text-[11px] text-muted-foreground font-mono">reflection</span>
                             </div>
                             <p className="text-sm leading-relaxed text-foreground">
                               Started the day reviewing architecture principles. Keeping things fast, linear, and unencumbered by unnecessary state. Everything feels light.
@@ -256,12 +236,12 @@ export function LandingPage() {
 
                       {/* Note 2 - Important / Locked */}
                       <div className="relative mb-6">
-                        <div className="absolute -left-6 sm:-left-8 top-1.5 size-2.5 rounded-full border-2 border-background bg-amber-500 ring-2 ring-amber-500/20" />
-                        <Card className="border-border/60 bg-muted/30 border-dashed">
+                        <div className="absolute -left-6 sm:-left-8 top-1.5 size-2 rounded-full border border-background bg-muted-foreground" />
+                        <Card className="border-border/60 bg-muted/20 border-dashed">
                           <CardContent className="p-3.5 sm:p-4">
                             <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
                               <span className="font-mono font-medium">02:15 PM</span>
-                              <div className="flex items-center gap-1 text-amber-500 font-medium text-[11px]">
+                              <div className="flex items-center gap-1 text-muted-foreground font-medium text-[11px]">
                                 <Lock className="size-3" />
                                 <span>PIN Protected</span>
                               </div>
@@ -272,7 +252,7 @@ export function LandingPage() {
                               </div>
                               <div>
                                 <p className="text-xs font-medium text-foreground">Sensitive thought locked behind PIN</p>
-                                <p className="text-[11px] text-muted-foreground">Tap with PIN to unlock and view owner note</p>
+                                <p className="text-[11px] text-muted-foreground">Unlock with PIN to view contents</p>
                               </div>
                             </div>
                           </CardContent>
@@ -281,7 +261,7 @@ export function LandingPage() {
 
                       {/* Note 3 */}
                       <div className="relative">
-                        <div className="absolute -left-6 sm:-left-8 top-1.5 size-2.5 rounded-full border-2 border-background bg-primary ring-2 ring-primary/20" />
+                        <div className="absolute -left-6 sm:-left-8 top-1.5 size-2 rounded-full border border-background bg-foreground" />
                         <Card className="border-border/60 bg-card/70 hover:bg-card transition-colors">
                           <CardContent className="p-3.5 sm:p-4">
                             <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
@@ -291,8 +271,8 @@ export function LandingPage() {
                             <p className="text-sm leading-relaxed text-foreground mb-3">
                               Dusk walk by the waterfront. Crisp autumn air and gold reflections on the water.
                             </p>
-                            <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/40 p-2 max-w-xs text-xs text-muted-foreground">
-                              <ImagePlus className="size-4 text-primary" />
+                            <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 p-2 max-w-xs text-xs text-muted-foreground">
+                              <ImagePlus className="size-4 text-muted-foreground" />
                               <span className="truncate">autumn-waterfront-evening.jpg</span>
                             </div>
                           </CardContent>
@@ -318,15 +298,15 @@ export function LandingPage() {
                             key={i}
                             className={`flex flex-col items-center justify-center rounded-lg p-2 border transition-all ${
                               isToday
-                                ? "border-primary bg-primary/10 text-primary font-bold"
+                                ? "border-foreground bg-foreground/10 text-foreground font-bold"
                                 : hasNotes
                                 ? "border-border bg-card text-foreground"
-                                : "border-transparent text-muted-foreground opacity-50"
+                                : "border-transparent text-muted-foreground opacity-40"
                             }`}
                           >
                             <span>{day}</span>
                             {hasNotes && (
-                              <span className={`size-1 rounded-full mt-1 ${isToday ? "bg-primary" : "bg-muted-foreground"}`} />
+                              <span className={`size-1 rounded-full mt-1 ${isToday ? "bg-foreground" : "bg-muted-foreground"}`} />
                             )}
                           </div>
                         )
@@ -347,7 +327,7 @@ export function LandingPage() {
                           key={m}
                           className={`rounded-lg border p-3 text-xs text-left transition-colors ${
                             idx === 9
-                              ? "border-primary bg-primary/5 text-foreground font-semibold"
+                              ? "border-foreground/40 bg-muted/40 text-foreground font-semibold"
                               : "border-border/60 bg-card/40 text-muted-foreground"
                           }`}
                         >
@@ -366,18 +346,18 @@ export function LandingPage() {
 
                 {activeTab === "important" && (
                   <div className="space-y-4 py-6 text-center">
-                    <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-500 mb-2">
-                      <Lock className="size-5" />
+                    <div className="mx-auto flex size-10 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground mb-2">
+                      <Lock className="size-4 text-muted-foreground" />
                     </div>
                     <h3 className="text-sm font-semibold">Important Notes Vault</h3>
                     <p className="text-xs text-muted-foreground max-w-sm mx-auto">
                       All notes marked as important are locked behind your private PIN. Enter your PIN once per session to reveal confidential thoughts.
                     </p>
                     <div className="flex justify-center gap-1.5 pt-2">
-                      <div className="size-3 rounded-full bg-border" />
-                      <div className="size-3 rounded-full bg-border" />
-                      <div className="size-3 rounded-full bg-border" />
-                      <div className="size-3 rounded-full bg-border" />
+                      <div className="size-2 rounded-full bg-border" />
+                      <div className="size-2 rounded-full bg-border" />
+                      <div className="size-2 rounded-full bg-border" />
+                      <div className="size-2 rounded-full bg-border" />
                     </div>
                   </div>
                 )}
@@ -386,7 +366,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* Feature Highlights Grid */}
+        {/* Feature Highlights Grid - Strictly Minimalist Monochrome */}
         <section className="mt-24 sm:mt-32">
           <div className="text-center">
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -397,80 +377,80 @@ export function LandingPage() {
             </p>
           </div>
 
-          <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {/* Card 1 */}
-            <Card className="border-border/60 bg-card/50 backdrop-blur-xs transition-shadow hover:shadow-md">
+            <Card className="border-border/60 bg-card/40 transition-colors hover:border-border">
               <CardContent className="p-6">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary mb-4">
-                  <Clock className="size-5" />
+                <div className="flex size-9 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground mb-4">
+                  <Clock className="size-4" />
                 </div>
-                <h3 className="text-base font-semibold">The 24-Hour Day Rail</h3>
-                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                <h3 className="text-sm font-semibold">The 24-Hour Day Rail</h3>
+                <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
                   Log notes naturally as your day unfolds. A vertical timeline gives you a clean, chronological perspective of your thoughts and activities.
                 </p>
               </CardContent>
             </Card>
 
             {/* Card 2 */}
-            <Card className="border-border/60 bg-card/50 backdrop-blur-xs transition-shadow hover:shadow-md">
+            <Card className="border-border/60 bg-card/40 transition-colors hover:border-border">
               <CardContent className="p-6">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500 mb-4">
-                  <Shield className="size-5" />
+                <div className="flex size-9 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground mb-4">
+                  <Shield className="size-4" />
                 </div>
-                <h3 className="text-base font-semibold">PIN-Protected Privacy</h3>
-                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                <h3 className="text-sm font-semibold">PIN-Protected Privacy</h3>
+                <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
                   Flag sensitive thoughts as Important. They are secured behind your personal PIN and remain concealed until you deliberately unlock them.
                 </p>
               </CardContent>
             </Card>
 
             {/* Card 3 */}
-            <Card className="border-border/60 bg-card/50 backdrop-blur-xs transition-shadow hover:shadow-md">
+            <Card className="border-border/60 bg-card/40 transition-colors hover:border-border">
               <CardContent className="p-6">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500 mb-4">
-                  <Calendar className="size-5" />
+                <div className="flex size-9 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground mb-4">
+                  <Calendar className="size-4" />
                 </div>
-                <h3 className="text-base font-semibold">Effortless Drill-Down</h3>
-                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                <h3 className="text-sm font-semibold">Effortless Drill-Down</h3>
+                <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
                   Navigate seamlessly between day, month, and year views. Revisit memories from last week or last year with instant breadcrumb jumps.
                 </p>
               </CardContent>
             </Card>
 
             {/* Card 4 */}
-            <Card className="border-border/60 bg-card/50 backdrop-blur-xs transition-shadow hover:shadow-md">
+            <Card className="border-border/60 bg-card/40 transition-colors hover:border-border">
               <CardContent className="p-6">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-purple-500/10 text-purple-500 mb-4">
-                  <ImagePlus className="size-5" />
+                <div className="flex size-9 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground mb-4">
+                  <ImagePlus className="size-4" />
                 </div>
-                <h3 className="text-base font-semibold">Visual Memories</h3>
-                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                  Easily attach snapshots to your notes. Full-screen lightbox viewer and fast uploads keep your visual moments close at hand.
+                <h3 className="text-sm font-semibold">Visual Memories</h3>
+                <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  Attach snapshots to your notes effortlessly. Full-screen lightbox viewer and fast uploads keep your visual moments close at hand.
                 </p>
               </CardContent>
             </Card>
 
             {/* Card 5 */}
-            <Card className="border-border/60 bg-card/50 backdrop-blur-xs transition-shadow hover:shadow-md">
+            <Card className="border-border/60 bg-card/40 transition-colors hover:border-border">
               <CardContent className="p-6">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500 mb-4">
-                  <Sparkles className="size-5" />
+                <div className="flex size-9 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground mb-4">
+                  <Search className="size-4" />
                 </div>
-                <h3 className="text-base font-semibold">Zero Noise & Clutter</h3>
-                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                <h3 className="text-sm font-semibold">Zero Noise & Clutter</h3>
+                <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
                   No public feeds, no likes, no algorithms. A solitary space strictly between you and your personal log.
                 </p>
               </CardContent>
             </Card>
 
             {/* Card 6 */}
-            <Card className="border-border/60 bg-card/50 backdrop-blur-xs transition-shadow hover:shadow-md">
+            <Card className="border-border/60 bg-card/40 transition-colors hover:border-border">
               <CardContent className="p-6">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-rose-500/10 text-rose-500 mb-4">
-                  <Layers className="size-5" />
+                <div className="flex size-9 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground mb-4">
+                  <Layers className="size-4" />
                 </div>
-                <h3 className="text-base font-semibold">Instant Real-Time Sync</h3>
-                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                <h3 className="text-sm font-semibold">Instant Cloud Sync</h3>
+                <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
                   Powered by modern reactive cloud storage. Your notes and PIN hashes are kept perfectly synchronized across devices.
                 </p>
               </CardContent>
@@ -481,9 +461,6 @@ export function LandingPage() {
         {/* How it works 3-step section */}
         <section className="mt-24 sm:mt-32 border-t border-border/40 pt-16">
           <div className="text-center">
-            <Badge variant="outline" className="text-xs font-medium py-0.5 px-3 mb-3">
-              Simple Workflow
-            </Badge>
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Three steps to a clearer mind.
             </h2>
@@ -491,32 +468,32 @@ export function LandingPage() {
 
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="flex flex-col items-center text-center p-4">
-              <div className="flex size-12 items-center justify-center rounded-full border border-border bg-muted/60 font-mono text-sm font-semibold mb-4">
+              <div className="flex size-10 items-center justify-center rounded-full border border-border bg-muted/40 font-mono text-xs font-semibold mb-4">
                 01
               </div>
-              <h3 className="text-base font-semibold">Jot down moments</h3>
-              <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+              <h3 className="text-sm font-semibold">Jot down moments</h3>
+              <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
                 Add text and photos anytime during your day. Each note is automatically timestamped on your day rail.
               </p>
             </div>
 
             <div className="flex flex-col items-center text-center p-4">
-              <div className="flex size-12 items-center justify-center rounded-full border border-border bg-muted/60 font-mono text-sm font-semibold mb-4">
+              <div className="flex size-10 items-center justify-center rounded-full border border-border bg-muted/40 font-mono text-xs font-semibold mb-4">
                 02
               </div>
-              <h3 className="text-base font-semibold">Browse the timeline</h3>
-              <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+              <h3 className="text-sm font-semibold">Browse the timeline</h3>
+              <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
                 Zoom out to see your month or year. Search past notes instantly with fast keyword filtering.
               </p>
             </div>
 
             <div className="flex flex-col items-center text-center p-4">
-              <div className="flex size-12 items-center justify-center rounded-full border border-border bg-muted/60 font-mono text-sm font-semibold mb-4">
+              <div className="flex size-10 items-center justify-center rounded-full border border-border bg-muted/40 font-mono text-xs font-semibold mb-4">
                 03
               </div>
-              <h3 className="text-base font-semibold">Protect what matters</h3>
-              <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                Star sensitive thoughts to place them under your personal PIN. Rest easy knowing confidential notes stay confidential.
+              <h3 className="text-sm font-semibold">Protect what matters</h3>
+              <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                Star sensitive thoughts to place them under your personal PIN. Confidential notes stay private.
               </p>
             </div>
           </div>
@@ -524,17 +501,17 @@ export function LandingPage() {
 
         {/* Call to Action Banner */}
         <section className="mt-24 sm:mt-32">
-          <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-linear-to-b from-muted/50 to-muted/20 p-8 sm:p-12 text-center">
-            <div className="relative z-10 mx-auto max-w-2xl">
-              <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-8 sm:p-12 text-center">
+            <div className="mx-auto max-w-xl">
+              <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
                 Ready to begin your personal journal?
               </h2>
-              <p className="mt-4 text-sm sm:text-base text-muted-foreground">
-                Join Memoflows today. Sign in securely in seconds with your account and start capturing your timeline.
+              <p className="mt-3 text-sm text-muted-foreground">
+                Join Memoflows today. Sign in securely in seconds and start capturing your timeline.
               </p>
-              <div className="mt-8 flex justify-center">
+              <div className="mt-7 flex justify-center">
                 <SignInButton mode="modal">
-                  <Button size="lg" className="gap-2 px-8 font-medium shadow-md">
+                  <Button size="lg" className="gap-2 px-7 font-medium shadow-xs">
                     <span>Sign in to get started</span>
                     <ArrowRight className="size-4" />
                   </Button>
@@ -546,10 +523,17 @@ export function LandingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border/40 py-8 text-center text-xs text-muted-foreground">
-        <div className="mx-auto flex max-w-6xl flex-col sm:flex-row items-center justify-between gap-4 px-4 sm:px-6">
+      <footer className="border-t border-border/40 py-8 text-xs text-muted-foreground">
+        <div className="mx-auto flex max-w-5xl flex-col sm:flex-row items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-foreground">memoflows</span>
+            <Image
+              src="/logo.png"
+              alt="memoflows"
+              width={18}
+              height={18}
+              className="size-4 rounded-xs object-contain"
+            />
+            <span className="font-medium text-foreground">memoflows</span>
             <span>—</span>
             <span>Personal timeline journal</span>
           </div>
