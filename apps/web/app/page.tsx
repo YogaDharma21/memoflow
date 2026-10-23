@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ImagePlus,
+  KeyRound,
   Lock,
   Plus,
   Search,
@@ -108,6 +109,7 @@ export default function Page() {
   const setImportant = useMutation("notes:setImportant" as any)
   const getUploadUrl = useMutation("notes:generateUploadUrl" as any)
   const setPinHash = useMutation("userSettings:setPinHash" as any)
+  const removePin = useMutation("userSettings:removePin" as any)
 
   const [view, setView] = useState<View>("day")
   const [cursor, setCursor] = useState<Date>(() => new Date())
@@ -118,7 +120,7 @@ export default function Page() {
   const [draftPhotos, setDraftPhotos] = useState<DraftPhoto[]>([])
   const [saving, setSaving] = useState(false)
   const [pinOpen, setPinOpen] = useState(false)
-  const [pinMode, setPinMode] = useState<"set" | "check">("check")
+  const [pinMode, setPinMode] = useState<"set" | "check" | "reset" | "manage">("check")
   const [pinValue, setPinValue] = useState("")
   const [pinError, setPinError] = useState("")
   const pinResolve = useRef<((ok: boolean) => void) | null>(null)
@@ -210,8 +212,8 @@ export default function Page() {
   }, [view])
 
   const askPin = useCallback(
-    (mode: "set" | "check"): Promise<boolean> => {
-      if (unlocked) return Promise.resolve(true)
+    (mode: "set" | "check" | "reset" | "manage"): Promise<boolean> => {
+      if (mode === "check" && unlocked) return Promise.resolve(true)
       setPinMode(mode)
       setPinValue("")
       setPinError("")
@@ -231,7 +233,7 @@ export default function Page() {
 
   const submitPin = async () => {
     if (!userId) return
-    if (pinMode === "set") {
+    if (pinMode === "set" || pinMode === "reset" || pinMode === "manage") {
       if (pinValue.length < 4) {
         setPinError("4 characters or more.")
         return
@@ -248,6 +250,23 @@ export default function Page() {
     } else {
       setPinError("Wrong PIN.")
     }
+  }
+
+  const handleRemovePin = async () => {
+    try {
+      await removePin()
+      setUnlocked(false)
+      if (view === "important") {
+        setView("day")
+      }
+      closePin(true)
+    } catch {
+      setPinError("Failed to remove PIN.")
+    }
+  }
+
+  const openManagePin = () => {
+    askPin("manage")
   }
 
   const needPin = useCallback(async (): Promise<boolean> => {
@@ -412,7 +431,25 @@ export default function Page() {
               {cursor.getDate()}
             </button>
           </span>
-          <UserButton appearance={{ elements: { avatarBox: "size-7" } }} />
+          <div className="flex items-center gap-1.5">
+            {settings?.pinHash && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="size-7 p-0 text-muted-foreground hover:text-foreground"
+                onClick={unlocked ? openManagePin : () => askPin("check")}
+                title={unlocked ? "PIN settings (unlocked)" : "Unlock with PIN"}
+                aria-label="pin settings"
+              >
+                {unlocked ? (
+                  <KeyRound className="size-3.5" />
+                ) : (
+                  <Lock className="size-3.5" />
+                )}
+              </Button>
+            )}
+            <UserButton appearance={{ elements: { avatarBox: "size-7" } }} />
+          </div>
         </nav>
         <div className="flex items-center justify-between py-2">
           <span className="flex gap-1.5">
@@ -464,7 +501,31 @@ export default function Page() {
             )}
           </span>
           <span className="flex gap-1.5">
-            {view !== "important" && (
+            {view === "important" ? (
+              <>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setUnlocked(false)
+                    setView("day")
+                  }}
+                  title="Lock notes"
+                  aria-label="lock notes"
+                >
+                  <Lock className="size-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={openManagePin}
+                  title="PIN Settings"
+                  aria-label="pin settings"
+                >
+                  <KeyRound className="size-4" />
+                </Button>
+              </>
+            ) : (
               <>
                 <Button
                   size="sm"
@@ -627,35 +688,80 @@ export default function Page() {
       <Dialog open={pinOpen} onOpenChange={(o) => !o && closePin(false)}>
         <DialogContent>
           <DialogTitle className="text-sm">
-            {pinMode === "set" ? "Set a PIN" : "Enter PIN"}
+            {pinMode === "set"
+              ? "Set a PIN"
+              : pinMode === "check"
+                ? "Enter PIN"
+                : pinMode === "reset"
+                  ? "Reset PIN"
+                  : "PIN Settings"}
           </DialogTitle>
           <p className="text-xs text-muted-foreground">
             {pinMode === "set"
               ? "First time. 4 characters or more."
-              : "Type your PIN."}
+              : pinMode === "check"
+                ? "Type your PIN."
+                : pinMode === "reset"
+                  ? "Reset your PIN. 4 characters or more, or remove it."
+                  : settings?.pinHash
+                    ? "Enter a new PIN to change it, or remove PIN protection."
+                    : "Set a PIN (4 characters or more)."}
           </p>
           <input
             type="password"
             inputMode="numeric"
             className="mt-2 w-full rounded-lg border bg-card p-2.5 text-base outline-none"
-            placeholder="PIN"
+            placeholder={pinMode === "check" ? "PIN" : "New PIN (min 4 chars)"}
             value={pinValue}
             onChange={(e) => setPinValue(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submitPin()}
+            autoFocus
           />
           {pinError && (
             <p className="mt-1 text-xs text-destructive">{pinError}</p>
+          )}
+          {pinMode === "check" && (
+            <div className="mt-1 flex justify-end">
+              <button
+                type="button"
+                className="cursor-pointer text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                onClick={() => {
+                  setPinMode("reset")
+                  setPinValue("")
+                  setPinError("")
+                }}
+              >
+                Forgot PIN?
+              </button>
+            </div>
           )}
           <div className="mt-2 flex gap-2">
             <Button
               variant="ghost"
               className="flex-1"
-              onClick={() => closePin(false)}
+              onClick={() => {
+                if (pinMode === "reset") {
+                  setPinMode("check")
+                  setPinValue("")
+                  setPinError("")
+                } else {
+                  closePin(false)
+                }
+              }}
             >
-              Cancel
+              {pinMode === "reset" ? "Back" : "Cancel"}
             </Button>
+            {(pinMode === "reset" || (pinMode === "manage" && settings?.pinHash)) && (
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={handleRemovePin}
+              >
+                Remove PIN
+              </Button>
+            )}
             <Button className="flex-1" onClick={submitPin}>
-              OK
+              {pinMode === "reset" || pinMode === "manage" ? "Save" : "OK"}
             </Button>
           </div>
         </DialogContent>
