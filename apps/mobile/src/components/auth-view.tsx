@@ -13,7 +13,7 @@ import { useColorScheme } from 'react-native';
 
 export function AuthView() {
   const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+  const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
 
   const { signIn, setActive: setSignInActive, isLoaded: signInLoaded } = useSignIn();
   const { signUp, setActive: setSignUpActive, isLoaded: signUpLoaded } = useSignUp();
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   input: {
     width: '100%',
     height: 44,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: Spacing.three,
     marginBottom: Spacing.two,
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
   button: {
     width: '100%',
     height: 44,
-    borderRadius: 10,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: Spacing.two,

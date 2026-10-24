@@ -33,7 +33,7 @@ export function LandingPage() {
   return (
     <div className="relative min-h-screen bg-background text-foreground antialiased selection:bg-muted selection:text-foreground">
       {/* Top Navigation */}
-      <header className="sticky top-0 z-30 border-b border-border/40 bg-background/80 backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-b border-border bg-background">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-2.5">
             <Image
@@ -133,9 +133,9 @@ export function LandingPage() {
 
         {/* Interactive App Preview Section */}
         <section id="preview" className="mt-16 sm:mt-24 scroll-mt-20">
-          <div className="relative mx-auto max-w-4xl rounded-xl border border-border bg-card p-2 sm:p-4 shadow-sm">
+          <div className="relative mx-auto max-w-4xl rounded-[24px] border border-border bg-card p-2 sm:p-4 shadow-[var(--card-shadow)]">
             {/* Window bar mockup */}
-            <div className="mb-3 flex items-center justify-between border-b border-border/40 pb-2.5 px-2">
+            <div className="mb-3 flex items-center justify-between border-b border-border pb-2.5 px-2">
               <div className="flex items-center gap-2">
                 <span className="size-2.5 rounded-full bg-border" />
                 <span className="size-2.5 rounded-full bg-border" />
@@ -150,9 +150,9 @@ export function LandingPage() {
             </div>
 
             {/* Inner App Container Mock */}
-            <div className="rounded-lg border border-border/50 bg-background/50 p-4 sm:p-6">
+            <div className="rounded-[16px] border border-border bg-surface p-4 sm:p-6">
               {/* Timeline Header Bar */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
                 <div className="flex items-baseline gap-1.5 text-sm font-semibold">
                   <span className="text-muted-foreground">2026</span>
                   <span className="text-muted-foreground opacity-30">/</span>
@@ -162,12 +162,12 @@ export function LandingPage() {
                 </div>
 
                 {/* View switcher tabs */}
-                <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-1 text-xs">
+                <div className="flex items-center gap-1 rounded-full bg-surface-inset p-1 text-xs border border-border">
                   <button
                     onClick={() => setActiveTab("day")}
-                    className={`rounded-md px-2.5 py-1 font-medium transition-all cursor-pointer ${
+                    className={`rounded-full px-2.5 py-1 font-medium transition-all cursor-pointer ${
                       activeTab === "day"
-                        ? "bg-background text-foreground shadow-xs"
+                        ? "bg-card text-foreground shadow-xs"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -175,9 +175,9 @@ export function LandingPage() {
                   </button>
                   <button
                     onClick={() => setActiveTab("month")}
-                    className={`rounded-md px-2.5 py-1 font-medium transition-all cursor-pointer ${
+                    className={`rounded-full px-2.5 py-1 font-medium transition-all cursor-pointer ${
                       activeTab === "month"
-                        ? "bg-background text-foreground shadow-xs"
+                        ? "bg-card text-foreground shadow-xs"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -185,9 +185,9 @@ export function LandingPage() {
                   </button>
                   <button
                     onClick={() => setActiveTab("year")}
-                    className={`rounded-md px-2.5 py-1 font-medium transition-all cursor-pointer ${
+                    className={`rounded-full px-2.5 py-1 font-medium transition-all cursor-pointer ${
                       activeTab === "year"
-                        ? "bg-background text-foreground shadow-xs"
+                        ? "bg-card text-foreground shadow-xs"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -195,13 +195,13 @@ export function LandingPage() {
                   </button>
                   <button
                     onClick={() => setActiveTab("important")}
-                    className={`flex items-center gap-1 rounded-md px-2.5 py-1 font-medium transition-all cursor-pointer ${
+                    className={`flex items-center gap-1 rounded-full px-2.5 py-1 font-medium transition-all cursor-pointer ${
                       activeTab === "important"
-                        ? "bg-background text-foreground shadow-xs"
+                        ? "bg-card text-foreground shadow-xs"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    <Star className="size-3" fill={activeTab === "important" ? "currentColor" : "none"} />
+                    <Star className="size-3 text-amber-mineral" fill={activeTab === "important" ? "currentColor" : "none"} />
                     <span>Important</span>
                   </button>
                 </div>
@@ -221,7 +221,7 @@ export function LandingPage() {
                       {/* Note 1 */}
                       <div className="relative mb-6">
                         <div className="absolute -left-6 sm:-left-8 top-1.5 size-2 rounded-full border border-background bg-foreground" />
-                        <Card className="border-border/60 bg-card/70 hover:bg-card transition-colors">
+                        <Card className="border-border bg-card transition-colors">
                           <CardContent className="p-3.5 sm:p-4">
                             <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
                               <span className="font-mono font-medium">08:45 AM</span>
@@ -237,17 +237,17 @@ export function LandingPage() {
                       {/* Note 2 - Important / Locked */}
                       <div className="relative mb-6">
                         <div className="absolute -left-6 sm:-left-8 top-1.5 size-2 rounded-full border border-background bg-muted-foreground" />
-                        <Card className="border-border/60 bg-muted/20 border-dashed">
+                        <Card className="border-border bg-surface-inset border-dashed">
                           <CardContent className="p-3.5 sm:p-4">
                             <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
                               <span className="font-mono font-medium">02:15 PM</span>
-                              <div className="flex items-center gap-1 text-muted-foreground font-medium text-[11px]">
+                              <div className="flex items-center gap-1 text-amber-mineral font-medium text-[11px]">
                                 <Lock className="size-3" />
                                 <span>PIN Protected</span>
                               </div>
                             </div>
                             <div className="flex items-center gap-3 py-2 text-muted-foreground">
-                              <div className="flex size-8 items-center justify-center rounded-lg bg-background border border-border">
+                              <div className="flex size-8 items-center justify-center rounded-xl bg-card border border-border">
                                 <Lock className="size-4 text-muted-foreground" />
                               </div>
                               <div>
@@ -262,7 +262,7 @@ export function LandingPage() {
                       {/* Note 3 */}
                       <div className="relative">
                         <div className="absolute -left-6 sm:-left-8 top-1.5 size-2 rounded-full border border-background bg-foreground" />
-                        <Card className="border-border/60 bg-card/70 hover:bg-card transition-colors">
+                        <Card className="border-border bg-card transition-colors">
                           <CardContent className="p-3.5 sm:p-4">
                             <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
                               <span className="font-mono font-medium">07:30 PM</span>
@@ -271,7 +271,7 @@ export function LandingPage() {
                             <p className="text-sm leading-relaxed text-foreground mb-3">
                               Dusk walk by the waterfront. Crisp autumn air and gold reflections on the water.
                             </p>
-                            <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 p-2 max-w-xs text-xs text-muted-foreground">
+                            <div className="flex items-center gap-2 rounded-xl border border-border bg-surface-inset p-2 max-w-xs text-xs text-muted-foreground">
                               <ImagePlus className="size-4 text-muted-foreground" />
                               <span className="truncate">autumn-waterfront-evening.jpg</span>
                             </div>
@@ -379,9 +379,9 @@ export function LandingPage() {
 
           <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {/* Card 1 */}
-            <Card className="border-border/60 bg-card/40 transition-colors hover:border-border">
+            <Card className="border-border bg-card transition-colors hover:border-border">
               <CardContent className="p-6">
-                <div className="flex size-9 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground mb-4">
+                <div className="flex size-9 items-center justify-center rounded-xl border border-border bg-surface text-foreground mb-4">
                   <Clock className="size-4" />
                 </div>
                 <h3 className="text-sm font-semibold">The 24-Hour Day Rail</h3>
@@ -392,9 +392,9 @@ export function LandingPage() {
             </Card>
 
             {/* Card 2 */}
-            <Card className="border-border/60 bg-card/40 transition-colors hover:border-border">
+            <Card className="border-border bg-card transition-colors hover:border-border">
               <CardContent className="p-6">
-                <div className="flex size-9 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground mb-4">
+                <div className="flex size-9 items-center justify-center rounded-xl border border-border bg-surface text-foreground mb-4">
                   <Shield className="size-4" />
                 </div>
                 <h3 className="text-sm font-semibold">PIN-Protected Privacy</h3>
@@ -405,9 +405,9 @@ export function LandingPage() {
             </Card>
 
             {/* Card 3 */}
-            <Card className="border-border/60 bg-card/40 transition-colors hover:border-border">
+            <Card className="border-border bg-card transition-colors hover:border-border">
               <CardContent className="p-6">
-                <div className="flex size-9 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground mb-4">
+                <div className="flex size-9 items-center justify-center rounded-xl border border-border bg-surface text-foreground mb-4">
                   <Calendar className="size-4" />
                 </div>
                 <h3 className="text-sm font-semibold">Effortless Drill-Down</h3>
@@ -418,9 +418,9 @@ export function LandingPage() {
             </Card>
 
             {/* Card 4 */}
-            <Card className="border-border/60 bg-card/40 transition-colors hover:border-border">
+            <Card className="border-border bg-card transition-colors hover:border-border">
               <CardContent className="p-6">
-                <div className="flex size-9 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground mb-4">
+                <div className="flex size-9 items-center justify-center rounded-xl border border-border bg-surface text-foreground mb-4">
                   <ImagePlus className="size-4" />
                 </div>
                 <h3 className="text-sm font-semibold">Visual Memories</h3>
@@ -431,9 +431,9 @@ export function LandingPage() {
             </Card>
 
             {/* Card 5 */}
-            <Card className="border-border/60 bg-card/40 transition-colors hover:border-border">
+            <Card className="border-border bg-card transition-colors hover:border-border">
               <CardContent className="p-6">
-                <div className="flex size-9 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground mb-4">
+                <div className="flex size-9 items-center justify-center rounded-xl border border-border bg-surface text-foreground mb-4">
                   <Search className="size-4" />
                 </div>
                 <h3 className="text-sm font-semibold">Zero Noise & Clutter</h3>
@@ -444,9 +444,9 @@ export function LandingPage() {
             </Card>
 
             {/* Card 6 */}
-            <Card className="border-border/60 bg-card/40 transition-colors hover:border-border">
+            <Card className="border-border bg-card transition-colors hover:border-border">
               <CardContent className="p-6">
-                <div className="flex size-9 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground mb-4">
+                <div className="flex size-9 items-center justify-center rounded-xl border border-border bg-surface text-foreground mb-4">
                   <Layers className="size-4" />
                 </div>
                 <h3 className="text-sm font-semibold">Instant Cloud Sync</h3>
@@ -459,7 +459,7 @@ export function LandingPage() {
         </section>
 
         {/* How it works 3-step section */}
-        <section className="mt-24 sm:mt-32 border-t border-border/40 pt-16">
+        <section className="mt-24 sm:mt-32 border-t border-border pt-16">
           <div className="text-center">
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Three steps to a clearer mind.
@@ -468,7 +468,7 @@ export function LandingPage() {
 
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="flex flex-col items-center text-center p-4">
-              <div className="flex size-10 items-center justify-center rounded-full border border-border bg-muted/40 font-mono text-xs font-semibold mb-4">
+              <div className="flex size-10 items-center justify-center rounded-full border border-border bg-surface font-mono text-xs font-semibold mb-4">
                 01
               </div>
               <h3 className="text-sm font-semibold">Jot down moments</h3>
@@ -478,7 +478,7 @@ export function LandingPage() {
             </div>
 
             <div className="flex flex-col items-center text-center p-4">
-              <div className="flex size-10 items-center justify-center rounded-full border border-border bg-muted/40 font-mono text-xs font-semibold mb-4">
+              <div className="flex size-10 items-center justify-center rounded-full border border-border bg-surface font-mono text-xs font-semibold mb-4">
                 02
               </div>
               <h3 className="text-sm font-semibold">Browse the timeline</h3>
@@ -488,7 +488,7 @@ export function LandingPage() {
             </div>
 
             <div className="flex flex-col items-center text-center p-4">
-              <div className="flex size-10 items-center justify-center rounded-full border border-border bg-muted/40 font-mono text-xs font-semibold mb-4">
+              <div className="flex size-10 items-center justify-center rounded-full border border-border bg-surface font-mono text-xs font-semibold mb-4">
                 03
               </div>
               <h3 className="text-sm font-semibold">Protect what matters</h3>
@@ -501,7 +501,7 @@ export function LandingPage() {
 
         {/* Call to Action Banner */}
         <section className="mt-24 sm:mt-32">
-          <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-8 sm:p-12 text-center">
+          <div className="relative overflow-hidden rounded-[24px] border border-border bg-card p-8 sm:p-12 text-center shadow-[var(--card-shadow)]">
             <div className="mx-auto max-w-xl">
               <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
                 Ready to begin your personal journal?
@@ -523,7 +523,7 @@ export function LandingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border/40 py-8 text-xs text-muted-foreground">
+      <footer className="border-t border-border py-8 text-xs text-muted-foreground">
         <div className="mx-auto flex max-w-5xl flex-col sm:flex-row items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex items-center gap-2">
             <Image

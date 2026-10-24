@@ -41,7 +41,7 @@ function CountDots({ count, color, emptyColor }: { count: number; color: string;
 
 export function YearView({ cursor, notes, onDrill }: Props) {
   const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+  const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
 
   const yr = cursor.getFullYear();
   const now = new Date();

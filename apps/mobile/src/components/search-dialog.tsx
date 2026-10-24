@@ -32,7 +32,7 @@ export function SearchDialog({
   onSelectNote,
 }: Props) {
   const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+  const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
 
   const [query, setQuery] = useState('');
 
@@ -52,22 +52,37 @@ export function SearchDialog({
       onRequestClose={onClose}
     >
       <View style={styles.backdrop}>
-        <View style={[styles.dialog, { backgroundColor: colors.background }]}>
+        <View
+          style={[
+            styles.dialog,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+            },
+          ]}
+        >
           <View style={[styles.searchHeader, { borderBottomColor: colors.border }]}>
-            <Feather name="search" size={16} color={colors.textSecondary} />
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              placeholder="Search notes..."
-              placeholderTextColor={colors.textSecondary}
-              autoFocus
-              value={query}
-              onChangeText={setQuery}
-            />
-            {Boolean(query) && (
-              <TouchableOpacity onPress={() => setQuery('')} hitSlop={8}>
-                <Feather name="x" size={16} color={colors.textSecondary} />
-              </TouchableOpacity>
-            )}
+            <View
+              style={[
+                styles.searchPill,
+                { backgroundColor: colors.surfaceInset },
+              ]}
+            >
+              <Feather name="search" size={15} color={colors.textSecondary} />
+              <TextInput
+                style={[styles.input, { color: colors.text }]}
+                placeholder="Search notes..."
+                placeholderTextColor={colors.textSecondary}
+                autoFocus
+                value={query}
+                onChangeText={setQuery}
+              />
+              {Boolean(query) && (
+                <TouchableOpacity onPress={() => setQuery('')} hitSlop={8}>
+                  <Feather name="x" size={15} color={colors.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={8}>
               <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Done</Text>
             </TouchableOpacity>
@@ -91,7 +106,7 @@ export function SearchDialog({
                 return (
                   <TouchableOpacity
                     key={note._id}
-                    style={[styles.item, { borderBottomColor: colors.border }]}
+                    style={[styles.item, { borderBottomColor: colors.borderSubtle }]}
                     onPress={() => onSelectNote(note)}
                   >
                     <View style={styles.itemHeader}>
@@ -139,7 +154,7 @@ export function SearchDialog({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.three,
@@ -147,7 +162,8 @@ const styles = StyleSheet.create({
   dialog: {
     width: '100%',
     maxHeight: '80%',
-    borderRadius: 16,
+    borderRadius: 24,
+    borderWidth: 1,
     overflow: 'hidden',
   },
   searchHeader: {
@@ -155,13 +171,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.two,
+  },
+  searchPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 9999,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
     gap: Spacing.two,
   },
   input: {
     flex: 1,
-    fontSize: 15,
-    paddingVertical: Spacing.one,
+    fontSize: 14,
+    paddingVertical: 4,
   },
   closeBtn: {
     marginLeft: Spacing.one,

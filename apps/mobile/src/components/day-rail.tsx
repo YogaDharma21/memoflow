@@ -28,7 +28,7 @@ const sameDay = (a: Date, b: Date) =>
 
 export function DayRail({ notes, cursor, onStar, onOpen, onViewer }: Props) {
   const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+  const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
 
   const now = new Date();
   const isToday = sameDay(cursor, now);

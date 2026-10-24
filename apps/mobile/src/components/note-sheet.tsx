@@ -37,7 +37,7 @@ export function NoteSheet({
   onDelete,
 }: Props) {
   const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+  const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
 
   const [body, setBody] = useState('');
   const [draftPhotos, setDraftPhotos] = useState<DraftPhoto[]>([]);
@@ -120,7 +120,15 @@ export function NoteSheet({
         style={styles.overlay}
       >
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-        <View style={[styles.sheet, { backgroundColor: colors.background }]}>
+        <View
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: colors.card,
+              borderTopColor: colors.border,
+            },
+          ]}
+        >
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.textSecondary }]}>
               {editNote ? 'Edit note' : 'New note'}
@@ -134,9 +142,9 @@ export function NoteSheet({
             style={[
               styles.input,
               {
-                backgroundColor: colors.card,
+                backgroundColor: colors.backgroundElement,
                 color: colors.text,
-                borderColor: colors.cardBorder,
+                borderColor: colors.border,
               },
             ]}
             placeholder="type a note"
@@ -216,11 +224,12 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   sheet: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1,
     padding: Spacing.four,
     paddingBottom: Spacing.five,
   },
@@ -248,7 +257,7 @@ const styles = StyleSheet.create({
   photoThumb: {
     width: 60,
     height: 60,
-    borderRadius: 8,
+    borderRadius: 16,
     marginRight: Spacing.two,
     overflow: 'hidden',
     position: 'relative',
@@ -280,7 +289,7 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     height: 44,
-    borderRadius: 10,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: Spacing.three,

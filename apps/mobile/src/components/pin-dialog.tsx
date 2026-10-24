@@ -20,7 +20,7 @@ type Props = {
 
 export function PinDialog({ visible, mode, error, onCancel, onSubmit }: Props) {
   const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+  const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
 
   const [pin, setPin] = useState('');
 
@@ -38,7 +38,15 @@ export function PinDialog({ visible, mode, error, onCancel, onSubmit }: Props) {
       onRequestClose={onCancel}
     >
       <View style={styles.backdrop}>
-        <View style={[styles.dialog, { backgroundColor: colors.background }]}>
+        <View
+          style={[
+            styles.dialog,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+            },
+          ]}
+        >
           <Text style={[styles.title, { color: colors.text }]}>
             {mode === 'set' ? 'Set a PIN' : 'Enter PIN'}
           </Text>
@@ -52,9 +60,9 @@ export function PinDialog({ visible, mode, error, onCancel, onSubmit }: Props) {
             style={[
               styles.input,
               {
-                backgroundColor: colors.card,
+                backgroundColor: colors.backgroundElement,
                 color: colors.text,
-                borderColor: colors.cardBorder,
+                borderColor: colors.border,
               },
             ]}
             placeholder="PIN"
@@ -102,7 +110,7 @@ export function PinDialog({ visible, mode, error, onCancel, onSubmit }: Props) {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.four,
@@ -110,7 +118,8 @@ const styles = StyleSheet.create({
   dialog: {
     width: '100%',
     maxWidth: 320,
-    borderRadius: 16,
+    borderRadius: 24,
+    borderWidth: 1,
     padding: Spacing.four,
   },
   title: {
@@ -124,7 +133,7 @@ const styles = StyleSheet.create({
   },
   input: {
     height: 44,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: Spacing.three,
     fontSize: 16,
@@ -142,7 +151,7 @@ const styles = StyleSheet.create({
   button: {
     flex: 1,
     height: 40,
-    borderRadius: 8,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
