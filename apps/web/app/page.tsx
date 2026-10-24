@@ -396,7 +396,7 @@ export default function Page() {
 
   return (
     <div className="mx-auto w-full max-w-[1000px] pb-30">
-      <header className="sticky top-0 z-5 border-b border-transparent bg-background/80 px-4 pt-3 pb-1 backdrop-blur-md sm:px-6">
+      <header className="sticky top-0 z-5 border-b border-border bg-background px-4 pt-3 pb-1 sm:px-6">
         <nav className="flex items-center justify-between gap-1 text-[13px] font-semibold">
           <span className="flex items-baseline gap-1">
             <button
@@ -424,22 +424,6 @@ export default function Page() {
             </button>
           </span>
           <div className="flex items-center gap-1.5">
-            {settings?.pinHash && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="size-7 p-0 text-muted-foreground hover:text-foreground"
-                onClick={unlocked ? openManagePin : () => askPin("check")}
-                title={unlocked ? "PIN settings (unlocked)" : "Unlock with PIN"}
-                aria-label="pin settings"
-              >
-                {unlocked ? (
-                  <KeyRound className="size-3.5" />
-                ) : (
-                  <Lock className="size-3.5" />
-                )}
-              </Button>
-            )}
             <UserButton appearance={{ elements: { avatarBox: "size-7" } }} />
           </div>
         </nav>
@@ -618,7 +602,7 @@ export default function Page() {
             {editId ? "Edit note" : "New note"}
           </SheetTitle>
           <textarea
-            className="mt-3 min-h-24 w-full rounded-xl border bg-card p-3 text-[15px] outline-none"
+            className="mt-3 min-h-24 w-full rounded-xl border border-border bg-card p-3 text-[15px] outline-none"
             placeholder="type a note"
             value={draftBody}
             onChange={(e) => setDraftBody(e.target.value)}
@@ -702,7 +686,7 @@ export default function Page() {
           <input
             type="password"
             inputMode="numeric"
-            className="mt-2 w-full rounded-lg border bg-card p-2.5 text-base outline-none"
+            className="mt-2 w-full rounded-xl border border-border bg-card p-2.5 text-base outline-none"
             placeholder={pinMode === "check" ? "PIN" : "New PIN (min 4 chars)"}
             value={pinValue}
             onChange={(e) => setPinValue(e.target.value)}
@@ -760,28 +744,30 @@ export default function Page() {
       </Dialog>
 
       <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
-        <DialogContent className="w-[min(540px,94%)] max-w-lg gap-0 overflow-hidden rounded-2xl p-0">
+        <DialogContent className="w-[min(540px,94%)] max-w-lg gap-0 overflow-hidden rounded-[24px] border border-border p-0 shadow-[var(--card-shadow)]">
           <DialogTitle className="sr-only">Search notes</DialogTitle>
-          <div className="flex items-center gap-2 border-b px-3.5 py-3">
-            <Search className="size-4 shrink-0 text-muted-foreground" />
-            <input
-              ref={searchInputRef}
-              autoFocus
-              type="text"
-              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-              placeholder="Search notes... (Esc to close)"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            {searchQuery && (
-              <button
-                className="cursor-pointer p-0.5 text-muted-foreground hover:text-foreground"
-                onClick={() => setSearchQuery("")}
-                aria-label="clear search"
-              >
-                <X className="size-4" />
-              </button>
-            )}
+          <div className="border-b border-border p-2.5">
+            <div className="flex items-center gap-2 rounded-full bg-surface-inset px-3.5 py-2">
+              <Search className="size-4 shrink-0 text-muted-foreground" />
+              <input
+                ref={searchInputRef}
+                autoFocus
+                type="text"
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                placeholder="Search notes... (Esc to close)"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button
+                  className="cursor-pointer p-0.5 text-muted-foreground hover:text-foreground"
+                  onClick={() => setSearchQuery("")}
+                  aria-label="clear search"
+                >
+                  <X className="size-4" />
+                </button>
+              )}
+            </div>
           </div>
           <div className="max-h-[60vh] overflow-y-auto p-2">
             {!searchQuery.trim() ? (
@@ -814,7 +800,7 @@ export default function Page() {
                         setView("day")
                         setSearchOpen(false)
                       }}
-                      className="group flex cursor-pointer flex-col gap-1 rounded-xl p-2.5 text-left transition-colors hover:bg-accent/50"
+                      className="group flex cursor-pointer flex-col gap-1 rounded-xl p-2.5 text-left transition-colors hover:bg-surface"
                     >
                       <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground">
                         <span>{timeStr}</span>
@@ -826,7 +812,7 @@ export default function Page() {
                             </span>
                           )}
                           {note.important && (
-                            <span className="flex items-center text-amber-500">
+                            <span className="flex items-center text-amber-mineral">
                               {isLocked ? (
                                 <Lock className="size-3" />
                               ) : (
@@ -941,7 +927,7 @@ function NoteCard({
           {note.body.trim() ? note.body : "photo"}
         </span>
         <button
-          className={`flex-none pl-1 text-sm ${note.important ? "opacity-100" : "text-muted-foreground opacity-45"}`}
+          className={`flex-none pl-1 text-sm ${note.important ? "text-amber-mineral opacity-100" : "text-muted-foreground opacity-45"}`}
           onClick={(e) => {
             e.stopPropagation()
             onStar(note)

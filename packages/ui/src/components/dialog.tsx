@@ -22,7 +22,7 @@ function DialogContent({
       <DialogPrimitive.Dialog.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-popover text-popover-foreground fixed top-1/2 left-1/2 z-50 w-[min(300px,86%)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border p-4 shadow-lg",
+          "bg-popover text-popover-foreground fixed top-1/2 left-1/2 z-50 w-[min(300px,86%)] -translate-x-1/2 -translate-y-1/2 rounded-[24px] border border-border p-4 shadow-[var(--card-shadow)]",
           className,
         )}
         {...props}

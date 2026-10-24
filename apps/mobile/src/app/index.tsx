@@ -45,7 +45,7 @@ const startOfDay = (d: Date) => {
 
 export default function HomeScreen() {
   const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+  const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
 
   const { isLoaded, isSignedIn, userId, signOut } = useAuth();
   const { user } = useUser();

@@ -22,8 +22,8 @@ function SheetContent({
       <DialogPrimitive.Dialog.Content
         data-slot="sheet-content"
         className={cn(
-          "bg-popover text-popover-foreground fixed inset-x-0 bottom-0 z-50 mx-auto w-[min(390px,100%)] rounded-t-[20px] border-t p-4 pb-6",
-          "sm:top-1/2 sm:bottom-auto sm:w-[min(480px,94%)] sm:-translate-y-1/2 sm:rounded-2xl sm:border",
+          "bg-popover text-popover-foreground fixed inset-x-0 bottom-0 z-50 mx-auto w-[min(390px,100%)] rounded-t-[24px] border-t border-border p-4 pb-6",
+          "sm:top-1/2 sm:bottom-auto sm:w-[min(480px,94%)] sm:-translate-y-1/2 sm:rounded-[24px] sm:border",
           className,
         )}
         {...props}

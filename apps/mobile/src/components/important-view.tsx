@@ -19,7 +19,7 @@ type Props = {
 
 export function ImportantView({ notes, onStar, onOpen, onViewer }: Props) {
   const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+  const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
 
   if (!notes.length) {
     return (

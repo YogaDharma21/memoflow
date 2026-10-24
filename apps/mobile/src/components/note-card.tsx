@@ -20,7 +20,7 @@ type Props = {
 
 export function NoteCard({ note, onStar, onOpen, onViewer }: Props) {
   const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+  const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
 
   const date = new Date(note.createdAt);
   const timeStr = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -34,6 +34,7 @@ export function NoteCard({ note, onStar, onOpen, onViewer }: Props) {
         {
           backgroundColor: colors.card,
           borderColor: colors.cardBorder,
+          shadowOpacity: scheme === 'light' ? 0.08 : 0.45,
         },
       ]}
       onPress={() => onOpen(note)}
@@ -80,8 +81,12 @@ const styles = StyleSheet.create({
   card: {
     marginVertical: 4,
     padding: Spacing.three,
-    borderRadius: 12,
+    borderRadius: 24,
     borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 14 },
+    shadowRadius: 20,
+    elevation: 4,
   },
   header: {
     flexDirection: 'row',
@@ -99,13 +104,13 @@ const styles = StyleSheet.create({
   },
   imageWrapper: {
     marginTop: Spacing.two,
-    borderRadius: 8,
+    borderRadius: 16,
     overflow: 'hidden',
   },
   image: {
     width: '100%',
     height: 180,
-    borderRadius: 8,
+    borderRadius: 16,
   },
   meta: {
     marginTop: Spacing.one,
