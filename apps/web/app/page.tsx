@@ -424,22 +424,6 @@ export default function Page() {
             </button>
           </span>
           <div className="flex items-center gap-1.5">
-            {settings?.pinHash && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="size-7 p-0 text-muted-foreground hover:text-foreground"
-                onClick={unlocked ? openManagePin : () => askPin("check")}
-                title={unlocked ? "PIN settings (unlocked)" : "Unlock with PIN"}
-                aria-label="pin settings"
-              >
-                {unlocked ? (
-                  <KeyRound className="size-3.5" />
-                ) : (
-                  <Lock className="size-3.5" />
-                )}
-              </Button>
-            )}
             <UserButton appearance={{ elements: { avatarBox: "size-7" } }} />
           </div>
         </nav>
