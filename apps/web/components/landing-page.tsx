@@ -6,7 +6,6 @@ import { SignInButton } from "@clerk/nextjs"
 import {
   ArrowRight,
   Calendar,
-  Check,
   Clock,
   ImagePlus,
   Lock,
@@ -64,13 +63,6 @@ export function LandingPage() {
             Your life in a continuous flow of moments.
           </h1>
 
-          {/* Subtitle */}
-          <p className="mt-5 max-w-2xl text-base sm:text-lg text-muted-foreground text-balance leading-relaxed">
-            A minimalist timeline journal built for clarity. Log thoughts through
-            the day, browse chronological rails across months and years, and keep
-            sensitive notes securely locked behind your personal PIN.
-          </p>
-
           {/* CTAs */}
           <div className="mt-8 flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
             <SignInButton mode="modal">
@@ -87,26 +79,6 @@ export function LandingPage() {
               </Button>
             </a>
           </div>
-
-          {/* Feature highlights line */}
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <Check className="size-3.5 text-muted-foreground" />
-              <span>No clutter or social feeds</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Check className="size-3.5 text-muted-foreground" />
-              <span>PIN-protected important notes</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Check className="size-3.5 text-muted-foreground" />
-              <span>Fast photo attachments</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Check className="size-3.5 text-muted-foreground" />
-              <span>Real-time cloud sync</span>
-            </div>
-          </div>
         </div>
 
         {/* Interactive App Preview Section */}
@@ -114,17 +86,15 @@ export function LandingPage() {
           <div className="relative mx-auto max-w-4xl rounded-[24px] border border-border bg-card p-2 sm:p-4 shadow-[var(--card-shadow)]">
             {/* Window bar mockup */}
             <div className="mb-3 flex items-center justify-between border-b border-border pb-2.5 px-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <span className="size-2.5 rounded-full bg-border" />
                 <span className="size-2.5 rounded-full bg-border" />
                 <span className="size-2.5 rounded-full bg-border" />
-                <span className="ml-2 text-xs font-mono text-muted-foreground hidden sm:inline">
-                  memoflows.app / timeline
-                </span>
               </div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground font-mono">
-                Interactive Preview
+              <div className="flex items-center justify-center rounded-md border border-border bg-surface px-3 py-0.5 text-[11px] font-mono text-muted-foreground">
+                memoflows.app / timeline
               </div>
+              <div className="w-8" aria-hidden="true" />
             </div>
 
             {/* Inner App Container Mock */}
@@ -311,7 +281,7 @@ export function LandingPage() {
                         >
                           <div className="font-medium text-foreground">{m}</div>
                           <div className="text-[10px] text-muted-foreground mt-1">
-                            {idx <= 9 ? `${12 + idx * 3} notes` : "—"}
+                            {idx <= 9 ? `${12 + idx * 3} notes` : ""}
                           </div>
                         </div>
                       ))}
@@ -351,7 +321,7 @@ export function LandingPage() {
               Thoughtful design for continuous memory.
             </h2>
             <p className="mt-3 text-sm sm:text-base text-muted-foreground max-w-xl mx-auto">
-              Every feature exists to help you capture, recall, and protect what matters — without distractions.
+              Every feature exists to help you capture, recall, and protect what matters without distractions.
             </p>
           </div>
 
@@ -435,74 +405,11 @@ export function LandingPage() {
             </Card>
           </div>
         </section>
-
-        {/* How it works 3-step section */}
-        <section className="mt-24 sm:mt-32 border-t border-border pt-16">
-          <div className="text-center">
-            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              Three steps to a clearer mind.
-            </h2>
-          </div>
-
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="flex flex-col items-center text-center p-4">
-              <div className="flex size-10 items-center justify-center rounded-full border border-border bg-surface font-mono text-xs font-semibold mb-4">
-                01
-              </div>
-              <h3 className="text-sm font-semibold">Jot down moments</h3>
-              <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                Add text and photos anytime during your day. Each note is automatically timestamped on your day rail.
-              </p>
-            </div>
-
-            <div className="flex flex-col items-center text-center p-4">
-              <div className="flex size-10 items-center justify-center rounded-full border border-border bg-surface font-mono text-xs font-semibold mb-4">
-                02
-              </div>
-              <h3 className="text-sm font-semibold">Browse the timeline</h3>
-              <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                Zoom out to see your month or year. Search past notes instantly with fast keyword filtering.
-              </p>
-            </div>
-
-            <div className="flex flex-col items-center text-center p-4">
-              <div className="flex size-10 items-center justify-center rounded-full border border-border bg-surface font-mono text-xs font-semibold mb-4">
-                03
-              </div>
-              <h3 className="text-sm font-semibold">Protect what matters</h3>
-              <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                Star sensitive thoughts to place them under your personal PIN. Confidential notes stay private.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* Call to Action Banner */}
-        <section className="mt-24 sm:mt-32">
-          <div className="relative overflow-hidden rounded-[24px] border border-border bg-card p-8 sm:p-12 text-center shadow-[var(--card-shadow)]">
-            <div className="mx-auto max-w-xl">
-              <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                Ready to begin your personal journal?
-              </h2>
-              <p className="mt-3 text-sm text-muted-foreground">
-                Join Memoflows today. Sign in securely in seconds and start capturing your timeline.
-              </p>
-              <div className="mt-7 flex justify-center">
-                <SignInButton mode="modal">
-                  <Button size="lg" className="gap-2 px-7 font-medium shadow-xs">
-                    <span>Sign in to get started</span>
-                    <ArrowRight className="size-4" />
-                  </Button>
-                </SignInButton>
-              </div>
-            </div>
-          </div>
-        </section>
       </main>
 
       {/* Footer */}
       <footer className="border-t border-border py-8 text-xs text-muted-foreground">
-        <div className="mx-auto flex max-w-5xl flex-col sm:flex-row items-center justify-between gap-4 px-4 sm:px-6">
+        <div className="mx-auto flex max-w-5xl items-center justify-center px-4 sm:px-6">
           <div className="flex items-center gap-2">
             <Image
               src="/logo.png"
@@ -512,11 +419,6 @@ export function LandingPage() {
               className="size-4 rounded-xs object-contain"
             />
             <span className="font-medium text-foreground">memoflows</span>
-            <span>—</span>
-            <span>Personal timeline journal</span>
-          </div>
-          <div>
-            <span>Private · Minimalist · Encrypted</span>
           </div>
         </div>
       </footer>
