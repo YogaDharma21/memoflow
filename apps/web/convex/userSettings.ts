@@ -33,3 +33,18 @@ export const setPinHash = mutation({
     }
   },
 });
+
+export const removePin = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not signed in");
+    const existing = await ctx.db
+      .query("userSettings")
+      .withIndex("by_clerk_user", (q: any) => q.eq("clerkUserId", identity.subject))
+      .unique();
+    if (existing) {
+      await ctx.db.patch(existing._id, { pinHash: undefined });
+    }
+  },
+});
