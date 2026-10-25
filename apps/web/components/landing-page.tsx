@@ -5,15 +5,10 @@ import Image from "next/image"
 import { SignInButton } from "@clerk/nextjs"
 import {
   ArrowRight,
-  Calendar,
-  Clock,
+  ChevronRight,
   ImagePlus,
   Lock,
-  Shield,
   Star,
-  Layers,
-  ChevronRight,
-  Search,
 } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Card, CardContent } from "@workspace/ui/components/card"
@@ -81,26 +76,11 @@ export function LandingPage() {
           </div>
         </div>
 
-        {/* Interactive App Preview Section */}
+        {/* App Preview Section */}
         <section id="preview" className="mt-16 sm:mt-24 scroll-mt-20">
-          <div className="relative mx-auto max-w-4xl rounded-[24px] border border-border bg-card p-2 sm:p-4 shadow-[var(--card-shadow)]">
-            {/* Window bar mockup */}
-            <div className="mb-3 flex items-center justify-between border-b border-border pb-2.5 px-2">
-              <div className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded-full bg-border" />
-                <span className="size-2.5 rounded-full bg-border" />
-                <span className="size-2.5 rounded-full bg-border" />
-              </div>
-              <div className="flex items-center justify-center rounded-md border border-border bg-surface px-3 py-0.5 text-[11px] font-mono text-muted-foreground">
-                memoflows.app / timeline
-              </div>
-              <div className="w-8" aria-hidden="true" />
-            </div>
-
-            {/* Inner App Container Mock */}
-            <div className="rounded-[16px] border border-border bg-surface p-4 sm:p-6">
-              {/* Timeline Header Bar */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
+          <div className="mx-auto max-w-4xl rounded-2xl border border-border bg-surface p-4 sm:p-6 shadow-[var(--card-shadow)]">
+            {/* Timeline Header Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
                 <div className="flex items-baseline gap-1.5 text-sm font-semibold">
                   <span className="text-muted-foreground">2026</span>
                   <span className="text-muted-foreground opacity-30">/</span>
@@ -311,99 +291,6 @@ export function LandingPage() {
                 )}
               </div>
             </div>
-          </div>
-        </section>
-
-        {/* Feature Highlights Grid - Strictly Minimalist Monochrome */}
-        <section className="mt-24 sm:mt-32">
-          <div className="text-center">
-            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              Thoughtful design for continuous memory.
-            </h2>
-            <p className="mt-3 text-sm sm:text-base text-muted-foreground max-w-xl mx-auto">
-              Every feature exists to help you capture, recall, and protect what matters without distractions.
-            </p>
-          </div>
-
-          <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {/* Card 1 */}
-            <Card className="border-border bg-card transition-colors hover:border-border">
-              <CardContent className="p-6">
-                <div className="flex size-9 items-center justify-center rounded-xl border border-border bg-surface text-foreground mb-4">
-                  <Clock className="size-4" />
-                </div>
-                <h3 className="text-sm font-semibold">The 24-Hour Day Rail</h3>
-                <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Log notes naturally as your day unfolds. A vertical timeline gives you a clean, chronological perspective of your thoughts and activities.
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Card 2 */}
-            <Card className="border-border bg-card transition-colors hover:border-border">
-              <CardContent className="p-6">
-                <div className="flex size-9 items-center justify-center rounded-xl border border-border bg-surface text-foreground mb-4">
-                  <Shield className="size-4" />
-                </div>
-                <h3 className="text-sm font-semibold">PIN-Protected Privacy</h3>
-                <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Flag sensitive thoughts as Important. They are secured behind your personal PIN and remain concealed until you deliberately unlock them.
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Card 3 */}
-            <Card className="border-border bg-card transition-colors hover:border-border">
-              <CardContent className="p-6">
-                <div className="flex size-9 items-center justify-center rounded-xl border border-border bg-surface text-foreground mb-4">
-                  <Calendar className="size-4" />
-                </div>
-                <h3 className="text-sm font-semibold">Effortless Drill-Down</h3>
-                <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Navigate seamlessly between day, month, and year views. Revisit memories from last week or last year with instant breadcrumb jumps.
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Card 4 */}
-            <Card className="border-border bg-card transition-colors hover:border-border">
-              <CardContent className="p-6">
-                <div className="flex size-9 items-center justify-center rounded-xl border border-border bg-surface text-foreground mb-4">
-                  <ImagePlus className="size-4" />
-                </div>
-                <h3 className="text-sm font-semibold">Visual Memories</h3>
-                <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Attach snapshots to your notes effortlessly. Full-screen lightbox viewer and fast uploads keep your visual moments close at hand.
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Card 5 */}
-            <Card className="border-border bg-card transition-colors hover:border-border">
-              <CardContent className="p-6">
-                <div className="flex size-9 items-center justify-center rounded-xl border border-border bg-surface text-foreground mb-4">
-                  <Search className="size-4" />
-                </div>
-                <h3 className="text-sm font-semibold">Zero Noise & Clutter</h3>
-                <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  No public feeds, no likes, no algorithms. A solitary space strictly between you and your personal log.
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Card 6 */}
-            <Card className="border-border bg-card transition-colors hover:border-border">
-              <CardContent className="p-6">
-                <div className="flex size-9 items-center justify-center rounded-xl border border-border bg-surface text-foreground mb-4">
-                  <Layers className="size-4" />
-                </div>
-                <h3 className="text-sm font-semibold">Instant Cloud Sync</h3>
-                <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Powered by modern reactive cloud storage. Your notes and PIN hashes are kept perfectly synchronized across devices.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
         </section>
       </main>
 
