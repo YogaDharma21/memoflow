@@ -95,6 +95,14 @@ const startOfDay = (d: Date) => {
   return c
 }
 
+const hasClerkSession = () => {
+  if (typeof document === "undefined") return false
+  return (
+    /(?:^|;\s*)(?:__session|__client_uat|__clerk_db_jwt)\s*=\s*([^;]+)/.test(document.cookie) &&
+    !/(?:^|;\s*)__client_uat\s*=\s*0(?:;|$)/.test(document.cookie)
+  )
+}
+
 export default function Page() {
   const { isLoaded, isSignedIn, userId } = useAuth()
   const notes = useQuery("notes:listMine" as any, {}) as Note[] | undefined
@@ -383,7 +391,11 @@ export default function Page() {
     }
   }
 
-  if (!isLoaded) return <PageSkeleton />
+  // ponytail: avoids flashing app skeleton to unauthenticated visitors before Clerk loads.
+  if (!isLoaded) {
+    if (hasClerkSession()) return <PageSkeleton />
+    return <LandingPage />
+  }
   if (!isSignedIn) return <LandingPage />
 
   const dayNotes = all
