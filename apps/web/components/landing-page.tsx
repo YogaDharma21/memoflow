@@ -3,7 +3,6 @@
 import { useState } from "react"
 import Image from "next/image"
 import { SignInButton } from "@clerk/nextjs"
-import { useTheme } from "next-themes"
 import {
   ArrowRight,
   Calendar,
@@ -11,10 +10,8 @@ import {
   Clock,
   ImagePlus,
   Lock,
-  Moon,
   Shield,
   Star,
-  Sun,
   Layers,
   ChevronRight,
   Search,
@@ -23,12 +20,7 @@ import { Button } from "@workspace/ui/components/button"
 import { Card, CardContent } from "@workspace/ui/components/card"
 
 export function LandingPage() {
-  const { setTheme, resolvedTheme } = useTheme()
   const [activeTab, setActiveTab] = useState<"day" | "month" | "year" | "important">("day")
-
-  const toggleTheme = () => {
-    setTheme(resolvedTheme === "dark" ? "light" : "dark")
-  }
 
   return (
     <div className="relative min-h-screen bg-background text-foreground antialiased selection:bg-muted selection:text-foreground">
@@ -48,20 +40,6 @@ export function LandingPage() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="size-8.5 rounded-lg text-muted-foreground hover:text-foreground"
-              aria-label="Toggle theme"
-            >
-              {resolvedTheme === "dark" ? (
-                <Sun className="size-4" />
-              ) : (
-                <Moon className="size-4" />
-              )}
-            </Button>
-
             <SignInButton mode="modal">
               <Button variant="ghost" size="sm" className="text-xs sm:text-sm font-medium">
                 Sign in
