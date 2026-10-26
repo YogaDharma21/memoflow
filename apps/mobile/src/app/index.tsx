@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useMutation, useQuery } from 'convex/react';
+import { api } from '@workspace/convex/api';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { Colors, Spacing } from '@/constants/theme';
 import { hashPin } from '@/lib/pin';
@@ -50,18 +51,19 @@ export default function HomeScreen() {
   const { isLoaded, isSignedIn, userId, signOut } = useAuth();
   const { user } = useUser();
 
-  const notes = useQuery('notes:listMine' as any, {}) as Note[] | undefined;
-  const settings = useQuery('userSettings:getMe' as any, {}) as
+  const notes = useQuery(api.notes.listMine, {}) as Note[] | undefined;
+  const settings = useQuery(api.userSettings.getMe, {}) as
     | { pinHash?: string }
     | null
     | undefined;
 
-  const createNote = useMutation('notes:create' as any);
-  const updateNote = useMutation('notes:update' as any);
-  const removeNote = useMutation('notes:remove' as any);
-  const setImportant = useMutation('notes:setImportant' as any);
-  const getUploadUrl = useMutation('notes:generateUploadUrl' as any);
-  const setPinHash = useMutation('userSettings:setPinHash' as any);
+  const createNote = useMutation(api.notes.create);
+  const updateNote = useMutation(api.notes.update);
+  const removeNote = useMutation(api.notes.remove);
+  const setImportant = useMutation(api.notes.setImportant);
+  const getUploadUrl = useMutation(api.notes.generateUploadUrl);
+  const setPinHash = useMutation(api.userSettings.setPinHash);
+  const removePin = useMutation(api.userSettings.removePin);
 
   const [view, setView] = useState<ViewMode>('day');
   const [cursor, setCursor] = useState<Date>(() => new Date());
