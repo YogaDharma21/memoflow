@@ -14,6 +14,7 @@ type Props = {
   cursor: Date;
   notes: Note[];
   onDrill: (d: Date) => void;
+  unlocked?: boolean;
 };
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -39,7 +40,7 @@ function CountDots({ count, color, emptyColor }: { count: number; color: string;
   );
 }
 
-export function YearView({ cursor, notes, onDrill }: Props) {
+export function YearView({ cursor, notes, onDrill, unlocked }: Props) {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
 
@@ -101,9 +102,11 @@ export function YearView({ cursor, notes, onDrill }: Props) {
                     style={[styles.previewText, { color: colors.textSecondary }]}
                   >
                     {monthNotes.length
-                      ? monthNotes[0]?.body.trim()
-                        ? monthNotes[0]?.body
-                        : 'photo'
+                      ? monthNotes[0]?.important && !unlocked
+                        ? '🔒 Locked note'
+                        : monthNotes[0]?.body.trim()
+                          ? monthNotes[0]?.body
+                          : 'photo'
                       : '—'}
                   </Text>
                   <CountDots
