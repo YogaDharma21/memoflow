@@ -16,6 +16,7 @@ type Props = {
   onStar: (n: Note) => void;
   onOpen: (n: Note) => void;
   onViewer: (list: string[], i: number) => void;
+  unlocked?: boolean;
 };
 
 const fmtHour = (h: number) =>
@@ -26,7 +27,7 @@ const sameDay = (a: Date, b: Date) =>
   a.getMonth() === b.getMonth() &&
   a.getDate() === b.getDate();
 
-export function DayRail({ notes, cursor, onStar, onOpen, onViewer }: Props) {
+export function DayRail({ notes, cursor, onStar, onOpen, onViewer, unlocked }: Props) {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
 
@@ -77,6 +78,7 @@ export function DayRail({ notes, cursor, onStar, onOpen, onViewer }: Props) {
                       onStar={onStar}
                       onOpen={onOpen}
                       onViewer={onViewer}
+                      unlocked={unlocked}
                     />
                   ))}
                 </View>

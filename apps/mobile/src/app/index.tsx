@@ -154,8 +154,17 @@ export default function HomeScreen() {
   };
 
   const toggleStar = async (note: Note) => {
-    if (!note.important && !(await needPin())) return;
+    if ((!note.important || !unlocked) && !(await needPin())) return;
     await setImportant({ id: note._id as any, important: !note.important });
+  };
+
+  const handleOpenNote = async (n: Note) => {
+    if (n.important && !unlocked) {
+      const ok = await needPin();
+      if (!ok) return;
+    }
+    setEditNote(n);
+    setSheetOpen(true);
   };
 
   const uploadDrafts = async (drafts: DraftPhoto[]): Promise<string[]> => {
@@ -363,11 +372,9 @@ export default function HomeScreen() {
               notes={dayNotes}
               cursor={cursor}
               onStar={toggleStar}
-              onOpen={(n) => {
-                setEditNote(n);
-                setSheetOpen(true);
-              }}
+              onOpen={handleOpenNote}
               onViewer={(list, i) => setViewer({ list, index: i })}
+              unlocked={unlocked}
             />
           )}
           {view === 'month' && (
@@ -375,6 +382,7 @@ export default function HomeScreen() {
               cursor={cursor}
               notes={allNotes}
               onDrill={(d) => drill('day', d)}
+              unlocked={unlocked}
             />
           )}
           {view === 'year' && (
@@ -382,17 +390,16 @@ export default function HomeScreen() {
               cursor={cursor}
               notes={allNotes}
               onDrill={(d) => drill('month', d)}
+              unlocked={unlocked}
             />
           )}
           {view === 'important' && (
             <ImportantView
               notes={importantNotes}
               onStar={toggleStar}
-              onOpen={(n) => {
-                setEditNote(n);
-                setSheetOpen(true);
-              }}
+              onOpen={handleOpenNote}
               onViewer={(list, i) => setViewer({ list, index: i })}
+              unlocked={unlocked}
             />
           )}
         </View>
