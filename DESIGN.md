@@ -1,16 +1,17 @@
-# Design System
+# MemoFlows Design System
 
-A specification for utilitarian, dark-first interfaces across web, desktop, and mobile applications.
+A specification for utilitarian, dark-first timeline journaling and memo capture interfaces across web and mobile applications.
 
 ---
 
 ## 1. Design Philosophy
 
-- **Balanced minimalism**: High information density without decorative fluff. State only what is necessary to inform the user and enable action. Avoid extreme minimalism that trims away vital dates, figures, or navigation controls.
+- **Continuous timeline**: Life recorded as an unbroken flow of moments rather than isolated documents. Information is anchored to real time (day, hour, month, year).
 - **Dark-first foundation**: Warm charcoal tones (`#08090b` canvas, `#121316` card surface). Never harsh pitch black (`#000000`).
-- **Solid matte surfaces**: Solid card colors with 1px hairline borders (`rgba(255, 255, 255, 0.07)`) and soft directional drop shadows. No gradient card overlays or glossy highlights.
+- **Warm linen light mode**: Paper white (`#faf9f6`) cards resting on an alabaster/linen canvas (`#f2f1ed`).
+- **Solid matte surfaces**: Solid card colors with 1px hairline borders (`rgba(255, 255, 255, 0.07)` dark / `rgba(21, 21, 20, 0.09)` light) and soft directional drop shadows. No gradient overlays or glossy highlights.
 - **Muted mineral accents**: Accent colors are desaturated earthy minerals (sage emerald, terracotta crimson, warm amber, steel blue). Never neon or high-saturation primaries.
-- **Tabular financial figures**: Every financial numeral uses tabular alignment (`tabular-nums`) with tight tracking for vertical scanning.
+- **Frictionless capture**: Zero unnecessary chrome, bloated rich-text toolbars, or modal clutter. Opening the app immediately invites writing.
 
 ---
 
@@ -23,10 +24,10 @@ A specification for utilitarian, dark-first interfaces across web, desktop, and 
 | `background` | `#08090b` | App canvas background. Warm charcoal. |
 | `card` | `#121316` | Solid card and surface background. |
 | `surface` | `#17181c` | Secondary surface, active rows, hover cards. |
-| `surface-inset` | `rgba(255, 255, 255, 0.035)` | Recessed sections, search input tracks, pills. |
+| `surface-inset` | `rgba(255, 255, 255, 0.035)` | Recessed sections, search input tracks, view pill background. |
 | `popover` | `#15161a` | Menus, dropdowns, dialogs. |
 | `border` | `rgba(255, 255, 255, 0.07)` | Hairline container border. |
-| `border-subtle` | `rgba(255, 255, 255, 0.04)` | Inset dividers, row separators. |
+| `border-subtle` | `rgba(255, 255, 255, 0.04)` | Inset dividers, row separators, timeline ticks. |
 | `foreground` | `#f4f4f2` | Primary text and strong icons. Warm off-white. |
 | `muted-foreground` | `#8a8c92` | Secondary labels, descriptions, timestamps. |
 | `subtle-foreground` | `#5f6065` | Inactive icons, placeholder text, hints. |
@@ -42,23 +43,21 @@ A specification for utilitarian, dark-first interfaces across web, desktop, and 
 | `surface` | `#e8e6e0` | Hover rows, secondary containers. |
 | `surface-inset` | `rgba(21, 21, 20, 0.035)` | Recessed chips, search input background. |
 | `border` | `rgba(21, 21, 20, 0.09)` | Hairline container border. |
-| `border-subtle` | `rgba(21, 21, 20, 0.05)` | Row dividers. |
+| `border-subtle` | `rgba(21, 21, 20, 0.05)` | Row dividers, subtle grid lines. |
 | `foreground` | `#151514` | Primary text. Soft charcoal ink. |
-| `muted-foreground` | `#6f6d67` | Secondary labels and body text. |
-| `subtle-foreground` | `#9a9890` | Footers and placeholders. |
+| `muted-foreground` | `#6f6d67` | Secondary labels, timestamps, metadata. |
+| `subtle-foreground` | `#9a9890` | Footers, placeholders, inactive states. |
 | `primary` | `#171716` | Dark CTA buttons. |
 | `primary-foreground`| `#f6f4ef` | Light text on primary buttons. |
 
 ### Semantic accents
 
-Use accent tones with 10% to 14% opacity backgrounds for indicators, icon holders, and status chips.
-
 | Tone | Dark value | Dark BG tint (12%) | Light value | Meaning |
 | :--- | :--- | :--- | :--- | :--- |
-| **Emerald** | `#a9bfa9` | `rgba(169, 191, 169, 0.12)` | `#4f7357` | Income, positive cashflow, success |
-| **Crimson** | `#c99a90` | `rgba(194, 133, 123, 0.13)` | `#a2544a` | Expenses, negative net, cancellation, overdue |
-| **Amber** | `#d2bd93` | `rgba(210, 189, 147, 0.12)` | `#8a6b34` | Upcoming bills, warnings, trial ending soon |
-| **Blue** | `#a6b0bd` | `rgba(166, 176, 189, 0.12)` | `#5c6b7a` | Transfers, accounts, category tags |
+| **Amber** | `#d2bd93` | `rgba(210, 189, 147, 0.12)` | `#8a6b34` | Starred memos, PIN vault, highlights |
+| **Emerald** | `#a9bfa9` | `rgba(169, 191, 169, 0.12)` | `#4f7357` | Save confirmations, sync status, success |
+| **Crimson** | `#c99a90` | `rgba(194, 133, 123, 0.13)` | `#a2544a` | Note deletion, PIN error, destructive actions |
+| **Blue** | `#a6b0bd` | `rgba(166, 176, 189, 0.12)` | `#5c6b7a` | Links, informational badges, neutral tags |
 
 ---
 
@@ -68,25 +67,23 @@ Default typeface: `Inter`, `SF Pro`, or system sans-serif.
 
 | Role | Size | Weight | Tracking | Usage |
 | :--- | :--- | :--- | :--- | :--- |
-| **Display Number** | 28px - 32px | 600 (Semibold) | `-0.04em` (`-1.1px`) | Main balance, net worth, hero figures |
-| **Section Title** | 18px - 20px | 600 (Semibold) | `-0.025em` (`-0.5px`)| Page headers, view titles |
-| **Card / Panel Title**| 15px | 500 (Medium) | `-0.015em` (`-0.2px`)| Card header, table section titles |
-| **Metric Value** | 20px - 22px | 500 (Medium) | `-0.03em`, `tabular-nums` | MetricCard numbers, recurring totals |
-| **Body / Row Text** | 13px - 14px | 400 or 500 | Normal | Transaction descriptions, settings, lists |
-| **Meta / Subtitle** | 11px - 12px | 400 (Regular) | Normal | Card subtitles, secondary metadata, dates |
-| **Uppercase Label** | 10px | 500 or 600 | `+0.16em` (`+1.6px`) | Section category hints, micro KPI headers |
-| **Micro Caption** | 9px - 10px | 500 (Medium) | Normal | Heatmap weekday/month markers, legends |
+| **Header Date** | 16px - 18px | 600 (Semibold) | `-0.025em` (`-0.5px`) | Top timeline date breadcrumb (`2026 / October / 22`) |
+| **Memo Body** | 14px - 15px | 400 (Regular) | Normal, `leading-relaxed` | Note text, preserves line breaks (`whitespace-pre-wrap`) |
+| **Timeline Hour** | 11px - 12px | 500 (Medium) | Normal | Vertical rail hour markers (`12am`, `9am`, `2pm`) |
+| **Metadata / Timestamp** | 11px - 12px | 400 (Regular) | Normal | Card footer date/time, photo count (`Oct 22 · 3:45pm · 2 photos`) |
+| **Input / Search Text** | 13px - 14px | 400 (Regular) | Normal | Composer textarea, search modal input |
+| **Uppercase Label** | 10px | 600 (Semibold) | `+0.16em` (`+1.6px`) | Section category hints, view indicator subtitles |
+| **Micro Counter** | 10px - 11px | 500 (Medium) | Normal | Lightbox image index (`1 / 4`), badge counts |
 
 ---
 
-## 4. Content & Copywriting Rules
+## 4. Content & Interaction Rules
 
-- **No subtitle fluff**: Do not place descriptive slogans or filler under headings (for example, omit "Balances, bills, and what is left"). If the header and numbers make the purpose obvious, skip the subtitle.
-- **No vanity status pills**: Never render decorative badges for obvious or trivial states like "Online", "Status: Active", "Normal", or "Dashboard". Badges exist only for actionable or urgent state:
-  - Allowed: `Trial ending`, `Overdue`, `Cancelled`, `Paid`, or currency switchers (`IDR`, `USD`).
-  - Forbidden: "Online", "Active", "Operational", "Synced", "Ready".
-- **Concise actionable labels**: Button labels use direct verbs ("Add transaction", "Save", "Filter", "Export"). Avoid conversational or long labels.
-- **Preserve functional context**: Do not over-prune. Keep transaction categories, dates, bank account names, clear renewal countdowns, and quick filters.
+- **No subtitle fluff**: Timeline headers only show dates and view controls. Omit decorative marketing subtitles in-app.
+- **Preserve raw text formatting**: Note bodies preserve raw linebreaks and spacing (`whitespace-pre-wrap`) without forcing complex WYSIWYG formatting.
+- **Privacy vault gating**: Starred/important memos require biometric or PIN authentication. Unverified sessions render masked states or a lock gate.
+- **Border-free search**: Search inputs live inside a pill container (`borderRadius: 999`) with `surface-inset` background and zero border outline.
+- **Concise actions**: Use short, direct verbs ("New memo", "Save", "Delete", "Add photo", "Unlock").
 
 ---
 
@@ -94,78 +91,92 @@ Default typeface: `Inter`, `SF Pro`, or system sans-serif.
 
 ### Corner radius hierarchy
 
-- **Outer container / Main card (`.surface`)**: `24px` (`rounded-3xl` or `rounded-[24px]`)
-- **Inset section / Nested list (`.surface-inset`)**: `16px` (`rounded-2xl` or `rounded-[16px]`)
-- **Interactive buttons, form inputs, dialogs**: `10px` to `12px` (`rounded-xl` or `rounded-[10px]`)
-- **Pills / Status tags**: `9999px` (`rounded-full`)
-- **Heatmap cells & micro-indicators**: `2px` (`rounded-[2px]`)
+- **Memo card container (`.card`)**: `24px` (`rounded-3xl` or `rounded-[24px]`)
+- **Inset panels & dialog content (`.surface-inset`, `.dialog`)**: `16px` to `20px` (`rounded-2xl`)
+- **Interactive buttons, form inputs, sheet triggers**: `10px` to `12px` (`rounded-xl` or `rounded-[10px]`)
+- **View switcher pills & status badges**: `9999px` (`rounded-full`)
+- **Photo thumbnails in cards**: `12px` to `14px` (`rounded-xl`), overflow hidden, cover fit
 
 ### Surface construction
 
-Every card uses three exact properties:
+Every memo card uses standard matte properties:
 
 ```css
 /* Card Container */
-background-color: var(--card); /* Solid #121316 in dark mode */
+background-color: var(--card); /* #121316 in dark mode, #faf9f6 in light mode */
 border: 1px solid var(--border); /* rgba(255, 255, 255, 0.07) */
 border-radius: 24px;
-box-shadow: 0 28px 56px -40px rgba(0, 0, 0, 0.9);
+box-shadow: 0 28px 56px -40px rgba(0, 0, 0, 0.9); /* Subtle depth without harsh outlines */
 ```
-
-- **Solid matte background**: No linear or radial gradient overlays on card surfaces.
-- **No folder tabs**: Card headers sit flush inside standard card padding with uniform corners.
-- **Border-free search inputs**: Search inputs sit inside a pill container (`borderRadius: 999`) with `surfaceInset` background and zero border outline.
 
 ---
 
 ## 6. Standard Components
 
-### 1. MetricCard
-Compact KPI card used across dashboards in 2, 3, or 4 column grids.
+### 1. NoteCard
+Primary timeline entry presenting text thoughts and optional image attachments.
 
 - **Structure**:
-  1. Top row: Small uppercase label (`10px`, tracking `+0.16em`, muted).
-  2. Middle row: Tabular numeral (`20px - 22px`, font-medium, foreground).
-  3. Bottom row: Context label (`11px`, muted text) indicating recurrence or account count.
+  - Top: Header containing note text body and star toggle button (Amber star if marked important).
+  - Middle: Multi-photo preview row/grid. Images rendered with rounded corners and cover scaling. Click triggers lightbox viewer.
+  - Bottom: Meta footer displaying formatted date, time, and photo attachment count.
 - **Padding**: `16px` (`p-4`).
 - **Surface**: Solid card background, 24px radius, 1px border.
 
-### 2. Activity heatmap
-Full 52-week calendar spending matrix.
+### 2. Timeline Rail (Day View)
+Vertical 24-hour stream for navigating notes throughout the day.
 
 - **Structure**:
-  - Header: "Activity", subtitle "Daily spending, past 52 weeks", active days count.
-  - Matrix layout: 7 rows (Mon through Sun) by 52-53 column weeks.
-  - Cell size: `10px` square, `2px` border radius, `3px` gap.
-  - Weekday indicators: Left column showing `Mon`, `Wed`, `Fri` at `9px` muted text.
-  - Month headers: Positioned above week columns where a new month starts.
-  - Intensity scale: Square root scaling `0.22 + 0.78 * sqrt(amount / peak)` on foreground opacity. Zero spend renders at `rgba(255, 255, 255, 0.04)`.
-  - Footer: Left displays "Peak day" currency value, right displays 5-step "Less ... More" intensity legend.
+  - Left column: Time rail showing hour labels (`12am` to `11pm`) with hairline dividers. Current hour receives subtle accent highlight.
+  - Right column: Hourly slot container. Populated slots display NoteCards; empty slots remain clean or reveal a quick-add trigger on hover/tap.
+  - Auto-anchor: Scrolls automatically to the current active hour upon view load.
 
-### 3. List item / Transaction row
-Standard row item for transactions, bills, and accounts.
+### 3. View Switcher (Day / Month / Year / Starred)
+Pill-shaped segment control for shifting chronological granularity.
 
 - **Structure**:
-  - Left: `36px` rounded square icon container (`10px` radius) with 12% semantic tint background and matching icon color.
-  - Middle: Item title (`13px`, font-medium, foreground) with category or frequency subtitle (`11px`, muted).
-  - Right: Tabular amount (`13px`, font-medium, foreground or emerald for income) above date or status badge.
+  - Outer pill container: `rounded-full`, `bg-surface-inset`, 1px hairline border.
+  - Switcher items: `Day`, `Month`, `Year`, and `Starred` (vault icon).
+  - Active tab: Solid card surface (`bg-card`), shadow elevation, primary foreground text.
+  - Keyboard shortcuts: Arrow keys (`ArrowLeft` / `ArrowRight`) shift the timeline cursor backward/forward.
 
-### 4. Search and filter bar
-Input for filtering records by name, category, or date.
+### 4. Note Composer Sheet
+Bottom-sheet drawer (mobile) or slide-over drawer (web) for creating and editing memos.
 
-- **Structure**: Rounded pill (`rounded-full` or `borderRadius: 999`), inset background (`surfaceInset`), border-free (`border: 0`).
-- **Left icon**: 14px search icon in muted foreground.
-- **Text input**: 12px - 14px, transparent background, no focus ring outline.
+- **Structure**:
+  - Textarea: Borderless, auto-resizing, clean typography with placeholder prompt.
+  - Photo strip: Thumbnail preview of attached images with individual remove buttons (`X`).
+  - Action bar: Add photo button (`ImagePlus`), star toggle (`Star`), delete button (in edit mode), and primary Save button.
+
+### 5. Search Modal
+Quick keyboard-driven search dialog activated by `/` or `Cmd+K`.
+
+- **Structure**:
+  - Input: Pill container with `Search` icon, `surface-inset` background, border-free, auto-focused.
+  - Results list: Chronologically ordered matching notes with highlighted query terms and timestamp links that navigate directly to the target day.
+
+### 6. PIN Security Modal
+Numeric security gate for creating, verifying, or resetting the vault PIN.
+
+- **Structure**:
+  - Centered dialog with `Lock` icon, masked digit inputs, clear feedback on incorrect PIN attempts, and cancel/submit triggers.
+  - Client-side cryptographic hashing (`SHA-256`) ensures raw PINs are never transmitted in plaintext.
+
+### 7. Photo Lightbox Viewer
+Full-screen modal for inspecting attached images.
+
+- **Structure**:
+  - Dark backdrop with centered high-resolution image (`object-contain`).
+  - Navigation controls: Previous/Next buttons, left/right keyboard listener, touch swipe support.
+  - Header: Image index counter (`1 / 3`) and close button (`X`).
 
 ---
 
 ## 7. Anti-Patterns & Strict Rules
 
-1. **No gradient card fills**: Never apply linear or radial gradients across `.surface` cards. Cards are solid matte.
-2. **No pure black canvas**: `#000000` is harsh. Canvas is `#08090b`; cards are `#121316`.
-3. **No folder-tab cutouts**: Headers sit flush inside card padding with equal border radii.
-4. **No vanity status pills**: Never display badges like "Online", "Active", "Operational", or "Normal". Use badges only for critical financial states or currency selection.
-5. **No subtitle fluff**: Do not add marketing taglines, explanatory paragraphs, or filler slogans under titles inside application views.
-6. **No over-trimming**: Never remove functional dates, transaction accounts, currency codes, or navigation buttons in the name of minimalism.
-7. **No saturated neon accents**: Never use `#00ff00`, `#ff0000`, or default Tailwind `blue-600`. Use the desaturated mineral palette.
-8. **No borders on search pills**: Inset search inputs must remain borderless.
+1. **No gradient card fills**: Never apply linear or radial gradients across memo cards. Cards are solid matte.
+2. **No pitch black canvas**: Canvas must remain `#08090b` (dark) and `#f2f1ed` (light). Never use `#000000`.
+3. **No bloated rich-text toolbars**: Avoid distracting formatting toolbars (bold, italic, headers, tables). Memos remain lightweight, fluid, and natural.
+4. **No border outlines on search pills**: Inset search inputs must remain borderless with `surface-inset` background.
+5. **No plaintext PIN exposure**: Security PINs must always pass through client-side SHA-256 hashing before query evaluation or storage.
+6. **No neon accents**: Avoid saturated neon primaries. Use muted minerals (`#d2bd93`, `#a9bfa9`, `#c99a90`, `#a6b0bd`).
