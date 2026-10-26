@@ -41,14 +41,20 @@ export function NoteCard({ note, onStar, onOpen, onViewer }: Props) {
     >
       <View style={styles.header}>
         <Text style={[styles.body, { color: colors.text }]}>
-          {note.body.trim() ? note.body : 'photo'}
+          {note.isLocked
+            ? '🔒 Locked note'
+            : note.body.trim()
+              ? note.body
+              : 'photo'}
         </Text>
         <TouchableOpacity
           hitSlop={8}
           onPress={() => onStar(note)}
           style={styles.starButton}
         >
-          {note.important ? (
+          {note.isLocked ? (
+            <Feather name="lock" size={15} color={colors.star} />
+          ) : note.important ? (
             <FontAwesome name="star" size={15} color={colors.star} />
           ) : (
             <Feather name="star" size={15} color={colors.textSecondary} />
@@ -56,20 +62,21 @@ export function NoteCard({ note, onStar, onOpen, onViewer }: Props) {
         </TouchableOpacity>
       </View>
 
-      {note.photoUrls.map((url, i) => (
-        <TouchableOpacity
-          key={`${note._id}-${i}`}
-          activeOpacity={0.9}
-          onPress={() => onViewer(note.photoUrls, i)}
-          style={styles.imageWrapper}
-        >
-          <Image source={{ uri: url }} style={styles.image} resizeMode="cover" />
-        </TouchableOpacity>
-      ))}
+      {!note.isLocked &&
+        note.photoUrls.map((url, i) => (
+          <TouchableOpacity
+            key={`${note._id}-${i}`}
+            activeOpacity={0.9}
+            onPress={() => onViewer(note.photoUrls, i)}
+            style={styles.imageWrapper}
+          >
+            <Image source={{ uri: url }} style={styles.image} resizeMode="cover" />
+          </TouchableOpacity>
+        ))}
 
       <Text style={[styles.meta, { color: colors.textSecondary }]}>
         {dateStr} · {timeStr}
-        {note.photoUrls.length > 0
+        {!note.isLocked && note.photoUrls.length > 0
           ? ` · ${note.photoUrls.length} photo${note.photoUrls.length > 1 ? 's' : ''}`
           : ''}
       </Text>
