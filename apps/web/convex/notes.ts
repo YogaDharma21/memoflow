@@ -58,6 +58,16 @@ export const update = mutation({
     const ownerId = await requireOwnerId(ctx);
     const note = await ctx.db.get(args.id);
     if (!note || note.ownerId !== ownerId) throw new Error("Not found");
+    const nextIds = new Set(args.photoIds);
+    for (const sid of note.photoIds ?? []) {
+      if (!nextIds.has(sid)) {
+        try {
+          await ctx.storage.delete(sid);
+        } catch {
+          // File may already be gone. Link removal is what matters.
+        }
+      }
+    }
     await ctx.db.patch(args.id, { body: args.body, photoIds: args.photoIds });
   },
 });
