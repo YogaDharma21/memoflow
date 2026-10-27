@@ -1,7 +1,8 @@
 export default {
   providers: [
     {
-      domain: "https://growing-ant-3367.clerk.accounts.dev",
+      // ponytail: set via `npx convex env set CLERK_JWT_ISSUER_DOMAIN <url>`
+      domain: process.env.CLERK_JWT_ISSUER_DOMAIN,
       applicationID: "convex",
     },
   ],
