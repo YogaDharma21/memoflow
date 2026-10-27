@@ -304,7 +304,7 @@ export default function Page() {
   }
 
   const toggleStar = async (note: Note) => {
-    if ((note.isLocked || !note.important) && !(await needPin())) return
+    if ((note.isLocked || !note.important || !unlocked) && !(await needPin())) return
     await setImportant({
       id: note._id as any,
       important: !note.important,
@@ -320,7 +320,7 @@ export default function Page() {
   }
 
   const openEdit = async (note: Note) => {
-    if (note.isLocked) {
+    if (note.isLocked || (note.important && !unlocked)) {
       const ok = await needPin()
       if (!ok) return
       const fresh = all.find((n) => n._id === note._id && !n.isLocked)
@@ -602,6 +602,7 @@ export default function Page() {
                 onStar={toggleStar}
                 onOpen={openEdit}
                 onViewer={(l, i) => setViewer({ list: l, index: i })}
+                unlocked={unlocked}
               />
             )}
             {view === "month" && (
@@ -609,6 +610,7 @@ export default function Page() {
                 cursor={cursor}
                 notes={all}
                 onDrill={(d) => drill("day", d)}
+                unlocked={unlocked}
               />
             )}
             {view === "year" && (
@@ -616,6 +618,7 @@ export default function Page() {
                 cursor={cursor}
                 notes={all}
                 onDrill={(d) => drill("month", d)}
+                unlocked={unlocked}
               />
             )}
             {view === "important" && (
@@ -624,6 +627,7 @@ export default function Page() {
                 onStar={toggleStar}
                 onOpen={openEdit}
                 onViewer={(l, i) => setViewer({ list: l, index: i })}
+                unlocked={unlocked}
               />
             )}
           </>
@@ -973,18 +977,21 @@ function NoteCard({
   onStar,
   onOpen,
   onViewer,
+  unlocked,
 }: {
   note: Note
   onStar: (n: Note) => void
   onOpen: (n: Note) => void
   onViewer: (list: string[], i: number) => void
+  unlocked: boolean
 }) {
+  const isLocked = Boolean(note.isLocked ?? (note.important && !unlocked))
   return (
     <Card className="my-1.5 cursor-pointer p-3" onClick={() => onOpen(note)}>
       <div className="flex items-start justify-between gap-2">
         <span className="min-w-0 text-sm">
-          {note.isLocked ? (
-            <span className="flex items-center gap-1 text-muted-foreground italic">
+          {isLocked ? (
+            <span className="flex items-center gap-1 italic text-muted-foreground">
               <Lock className="inline size-3" /> Locked note
             </span>
           ) : note.body.trim() ? (
@@ -1001,7 +1008,7 @@ function NoteCard({
           }}
           aria-label="toggle important"
         >
-          {note.isLocked ? (
+          {isLocked ? (
             <Lock className="size-3.5 text-muted-foreground" />
           ) : (
             <Star
@@ -1011,7 +1018,7 @@ function NoteCard({
           )}
         </button>
       </div>
-      {!note.isLocked &&
+      {!isLocked &&
         note.photoUrls.map((u, i) => (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -1036,7 +1043,7 @@ function NoteCard({
           hour: "numeric",
           minute: "2-digit",
         })}
-        {!note.isLocked && note.photoUrls.length
+        {!isLocked && note.photoUrls.length
           ? ` · ${note.photoUrls.length} photo${note.photoUrls.length > 1 ? "s" : ""}`
           : ""}
       </small>
@@ -1050,12 +1057,14 @@ function DayRail({
   onStar,
   onOpen,
   onViewer,
+  unlocked,
 }: {
   notes: Note[]
   cursor: Date
   onStar: (n: Note) => void
   onOpen: (n: Note) => void
   onViewer: (list: string[], i: number) => void
+  unlocked: boolean
 }) {
   const nowH = new Date().getHours()
   const isToday = sameDay(cursor, new Date())
@@ -1093,6 +1102,7 @@ function DayRail({
                 onStar={onStar}
                 onOpen={onOpen}
                 onViewer={onViewer}
+                unlocked={unlocked}
               />
             ))}
           </div>
@@ -1119,10 +1129,12 @@ function MonthView({
   cursor,
   notes,
   onDrill,
+  unlocked,
 }: {
   cursor: Date
   notes: Note[]
   onDrill: (d: Date) => void
+  unlocked: boolean
 }) {
   const y = cursor.getFullYear()
   const m = cursor.getMonth()
@@ -1169,9 +1181,11 @@ function MonthView({
               <span className="min-w-0">
                 <span className="block text-[13px] text-muted-foreground max-sm:truncate sm:line-clamp-3">
                   {list.length
-                    ? list[0]?.body.trim()
-                      ? list[0]?.body
-                      : "photo"
+                    ? list[0]?.isLocked || (list[0]?.important && !unlocked)
+                      ? "🔒 Locked note"
+                      : list[0]?.body.trim()
+                        ? list[0]?.body
+                        : "photo"
                     : "—"}
                 </span>
                 <CountDots count={list.length} />
@@ -1193,10 +1207,12 @@ function YearView({
   cursor,
   notes,
   onDrill,
+  unlocked,
 }: {
   cursor: Date
   notes: Note[]
   onDrill: (d: Date) => void
+  unlocked: boolean
 }) {
   const yr = cursor.getFullYear()
   const counts = MONTHS.map(
@@ -1251,9 +1267,11 @@ function YearView({
               <span className="min-w-0">
                 <span className="block text-[13px] text-muted-foreground max-sm:truncate sm:line-clamp-3">
                   {monthNotes.length
-                    ? monthNotes[0]?.body.trim()
-                      ? monthNotes[0]?.body
-                      : "photo"
+                    ? monthNotes[0]?.isLocked || (monthNotes[0]?.important && !unlocked)
+                      ? "🔒 Locked note"
+                      : monthNotes[0]?.body.trim()
+                        ? monthNotes[0]?.body
+                        : "photo"
                     : "—"}
                 </span>
                 <CountDots count={counts[i] ?? 0} />
@@ -1281,11 +1299,13 @@ function ImportantView({
   onStar,
   onOpen,
   onViewer,
+  unlocked,
 }: {
   notes: Note[]
   onStar: (n: Note) => void
   onOpen: (n: Note) => void
   onViewer: (list: string[], i: number) => void
+  unlocked: boolean
 }) {
   if (!notes.length)
     return (
@@ -1302,6 +1322,7 @@ function ImportantView({
           onStar={onStar}
           onOpen={onOpen}
           onViewer={onViewer}
+          unlocked={unlocked}
         />
       ))}
     </div>

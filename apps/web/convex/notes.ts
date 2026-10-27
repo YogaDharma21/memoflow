@@ -91,6 +91,16 @@ export const update = mutation({
       }
     }
     await ctx.db.patch(args.id, { body: args.body, photoIds: args.photoIds })
+    const nextIds = new Set(args.photoIds)
+    for (const sid of note.photoIds ?? []) {
+      if (!nextIds.has(sid)) {
+        try {
+          await ctx.storage.delete(sid)
+        } catch {
+          // File may already be gone. Link removal is what matters.
+        }
+      }
+    }
   },
 })
 

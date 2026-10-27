@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -163,13 +163,32 @@ export default function HomeScreen() {
   };
 
   const toggleStar = async (note: Note) => {
-    if ((note.isLocked || !note.important) && !(await needPin())) return;
+    if ((note.isLocked || !note.important || !unlocked) && !(await needPin())) return;
     await setImportant({
       id: note._id as any,
       important: !note.important,
       pinHash: activePinHash ?? undefined,
     });
   };
+
+  const handleOpenNote = async (n: Note) => {
+    if (n.isLocked || (n.important && !unlocked)) {
+      const ok = await needPin();
+      if (!ok) return;
+      const fresh = allNotes.find((item) => item._id === n._id && !item.isLocked);
+      if (fresh) n = fresh;
+    }
+    setEditNote(n);
+    setSheetOpen(true);
+  };
+
+  useEffect(() => {
+    if (!sheetOpen || !editNote) return;
+    const current = allNotes.find((n) => n._id === editNote._id);
+    if (current && !current.isLocked && editNote.isLocked) {
+      setEditNote(current);
+    }
+  }, [allNotes, editNote, sheetOpen]);
 
   const uploadDrafts = async (drafts: DraftPhoto[]): Promise<string[]> => {
     const ids: string[] = [];
@@ -396,17 +415,9 @@ export default function HomeScreen() {
               notes={dayNotes}
               cursor={cursor}
               onStar={toggleStar}
-              onOpen={async (n) => {
-                if (n.isLocked) {
-                  const ok = await needPin();
-                  if (!ok) return;
-                  const fresh = allNotes.find((item) => item._id === n._id && !item.isLocked);
-                  if (fresh) n = fresh;
-                }
-                setEditNote(n);
-                setSheetOpen(true);
-              }}
+              onOpen={handleOpenNote}
               onViewer={(list, i) => setViewer({ list, index: i })}
+              unlocked={unlocked}
             />
           )}
           {view === 'month' && (
@@ -414,6 +425,7 @@ export default function HomeScreen() {
               cursor={cursor}
               notes={allNotes}
               onDrill={(d) => drill('day', d)}
+              unlocked={unlocked}
             />
           )}
           {view === 'year' && (
@@ -421,23 +433,16 @@ export default function HomeScreen() {
               cursor={cursor}
               notes={allNotes}
               onDrill={(d) => drill('month', d)}
+              unlocked={unlocked}
             />
           )}
           {view === 'important' && (
             <ImportantView
               notes={importantNotes}
               onStar={toggleStar}
-              onOpen={async (n) => {
-                if (n.isLocked) {
-                  const ok = await needPin();
-                  if (!ok) return;
-                  const fresh = allNotes.find((item) => item._id === n._id && !item.isLocked);
-                  if (fresh) n = fresh;
-                }
-                setEditNote(n);
-                setSheetOpen(true);
-              }}
+              onOpen={handleOpenNote}
               onViewer={(list, i) => setViewer({ list, index: i })}
+              unlocked={unlocked}
             />
           )}
         </View>
