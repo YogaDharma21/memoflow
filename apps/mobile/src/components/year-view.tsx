@@ -102,7 +102,7 @@ export function YearView({ cursor, notes, onDrill, unlocked }: Props) {
                     style={[styles.previewText, { color: colors.textSecondary }]}
                   >
                     {monthNotes.length
-                      ? monthNotes[0]?.important && !unlocked
+                      ? monthNotes[0]?.isLocked || (monthNotes[0]?.important && !unlocked)
                         ? '🔒 Locked note'
                         : monthNotes[0]?.body.trim()
                           ? monthNotes[0]?.body

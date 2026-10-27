@@ -8,23 +8,45 @@ async function requireOwnerId(ctx: any): Promise<string> {
 }
 
 export const listMine = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    pinHash: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return [];
     const ownerId = identity.subject;
+
+    const settings = await ctx.db
+      .query("userSettings")
+      .withIndex("by_clerk_user", (q: any) => q.eq("clerkUserId", ownerId))
+      .unique();
+    const isUnlocked =
+      !settings?.pinHash ||
+      (Boolean(args.pinHash) && args.pinHash === settings.pinHash);
+
     const notes = await ctx.db
       .query("notes")
       .withIndex("by_owner_created", (q: any) => q.eq("ownerId", ownerId))
       .order("desc")
       .collect();
+
     const withUrls = await Promise.all(
-      notes.map(async (n: any) => ({
-        ...n,
-        photoUrls: (
-          await Promise.all(n.photoIds.map((id: any) => ctx.storage.getUrl(id)))
-        ).filter((u): u is string => u !== null),
-      })),
+      notes.map(async (n: any) => {
+        const locked = Boolean(n.important && !isUnlocked);
+        const photoUrls = locked
+          ? []
+          : (
+              await Promise.all(
+                n.photoIds.map((id: any) => ctx.storage.getUrl(id)),
+              )
+            ).filter((u): u is string => u !== null);
+        return {
+          ...n,
+          body: locked ? "" : n.body,
+          photoUrls,
+          isLocked: locked,
+        };
+      }),
     );
     return withUrls;
   },
@@ -53,11 +75,21 @@ export const update = mutation({
     id: v.id("notes"),
     body: v.string(),
     photoIds: v.array(v.id("_storage")),
+    pinHash: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const ownerId = await requireOwnerId(ctx);
     const note = await ctx.db.get(args.id);
     if (!note || note.ownerId !== ownerId) throw new Error("Not found");
+    if (note.important) {
+      const settings = await ctx.db
+        .query("userSettings")
+        .withIndex("by_clerk_user", (q: any) => q.eq("clerkUserId", ownerId))
+        .unique();
+      if (settings?.pinHash && settings.pinHash !== args.pinHash) {
+        throw new Error("Locked note: PIN required");
+      }
+    }
     await ctx.db.patch(args.id, { body: args.body, photoIds: args.photoIds });
     const nextIds = new Set(args.photoIds);
     for (const sid of note.photoIds ?? []) {
@@ -73,11 +105,23 @@ export const update = mutation({
 });
 
 export const remove = mutation({
-  args: { id: v.id("notes") },
+  args: {
+    id: v.id("notes"),
+    pinHash: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const ownerId = await requireOwnerId(ctx);
     const note = await ctx.db.get(args.id);
     if (!note || note.ownerId !== ownerId) throw new Error("Not found");
+    if (note.important) {
+      const settings = await ctx.db
+        .query("userSettings")
+        .withIndex("by_clerk_user", (q: any) => q.eq("clerkUserId", ownerId))
+        .unique();
+      if (settings?.pinHash && settings.pinHash !== args.pinHash) {
+        throw new Error("Locked note: PIN required");
+      }
+    }
     for (const sid of note.photoIds) {
       try {
         await ctx.storage.delete(sid);
@@ -90,11 +134,22 @@ export const remove = mutation({
 });
 
 export const setImportant = mutation({
-  args: { id: v.id("notes"), important: v.boolean() },
+  args: {
+    id: v.id("notes"),
+    important: v.boolean(),
+    pinHash: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const ownerId = await requireOwnerId(ctx);
     const note = await ctx.db.get(args.id);
     if (!note || note.ownerId !== ownerId) throw new Error("Not found");
+    const settings = await ctx.db
+      .query("userSettings")
+      .withIndex("by_clerk_user", (q: any) => q.eq("clerkUserId", ownerId))
+      .unique();
+    if (settings?.pinHash && settings.pinHash !== args.pinHash) {
+      throw new Error("PIN required");
+    }
     await ctx.db.patch(args.id, { important: args.important });
   },
 });

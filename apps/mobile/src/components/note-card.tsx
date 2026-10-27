@@ -23,7 +23,7 @@ export function NoteCard({ note, onStar, onOpen, onViewer, unlocked }: Props) {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
 
-  const isLocked = note.important && !unlocked;
+  const isLocked = Boolean(note.isLocked ?? (note.important && !unlocked));
   const date = new Date(note.createdAt);
   const timeStr = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });

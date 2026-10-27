@@ -96,7 +96,7 @@ export function MonthView({ cursor, notes, onDrill, unlocked }: Props) {
                     style={[styles.previewText, { color: colors.textSecondary }]}
                   >
                     {list.length
-                      ? list[0]?.important && !unlocked
+                      ? list[0]?.isLocked || (list[0]?.important && !unlocked)
                         ? '🔒 Locked note'
                         : list[0]?.body.trim()
                           ? list[0]?.body

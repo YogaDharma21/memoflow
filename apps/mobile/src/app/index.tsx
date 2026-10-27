@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -50,9 +50,15 @@ export default function HomeScreen() {
   const { isLoaded, isSignedIn, userId, signOut } = useAuth();
   const { user } = useUser();
 
-  const notes = useQuery('notes:listMine' as any, {}) as Note[] | undefined;
+  const [activePinHash, setActivePinHash] = useState<string | null>(null);
+  const [unlocked, setUnlocked] = useState(false);
+
+  const notes = useQuery(
+    'notes:listMine' as any,
+    activePinHash ? { pinHash: activePinHash } : {}
+  ) as Note[] | undefined;
   const settings = useQuery('userSettings:getMe' as any, {}) as
-    | { pinHash?: string }
+    | { hasPin?: boolean }
     | null
     | undefined;
 
@@ -62,10 +68,10 @@ export default function HomeScreen() {
   const setImportant = useMutation('notes:setImportant' as any);
   const getUploadUrl = useMutation('notes:generateUploadUrl' as any);
   const setPinHash = useMutation('userSettings:setPinHash' as any);
+  const verifyPin = useMutation('userSettings:verifyPin' as any);
 
   const [view, setView] = useState<ViewMode>('day');
   const [cursor, setCursor] = useState<Date>(() => new Date());
-  const [unlocked, setUnlocked] = useState(false);
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editNote, setEditNote] = useState<Note | null>(null);
@@ -126,12 +132,15 @@ export default function HomeScreen() {
       }
       const hash = await hashPin(userId, pinValue);
       await setPinHash({ pinHash: hash });
+      setActivePinHash(hash);
       setUnlocked(true);
       closePin(true);
       return;
     }
     const hash = await hashPin(userId, pinValue);
-    if (settings?.pinHash && hash === settings.pinHash) {
+    const ok = await verifyPin({ pinHash: hash });
+    if (ok) {
+      setActivePinHash(hash);
       setUnlocked(true);
       closePin(true);
     } else {
@@ -141,7 +150,7 @@ export default function HomeScreen() {
 
   const needPin = useCallback(async (): Promise<boolean> => {
     if (unlocked) return true;
-    if (!settings?.pinHash) return askPin('set');
+    if (!settings?.hasPin) return askPin('set');
     return askPin('check');
   }, [unlocked, settings, askPin]);
 
@@ -154,18 +163,32 @@ export default function HomeScreen() {
   };
 
   const toggleStar = async (note: Note) => {
-    if ((!note.important || !unlocked) && !(await needPin())) return;
-    await setImportant({ id: note._id as any, important: !note.important });
+    if ((note.isLocked || !note.important || !unlocked) && !(await needPin())) return;
+    await setImportant({
+      id: note._id as any,
+      important: !note.important,
+      pinHash: activePinHash ?? undefined,
+    });
   };
 
   const handleOpenNote = async (n: Note) => {
-    if (n.important && !unlocked) {
+    if (n.isLocked || (n.important && !unlocked)) {
       const ok = await needPin();
       if (!ok) return;
+      const fresh = allNotes.find((item) => item._id === n._id && !item.isLocked);
+      if (fresh) n = fresh;
     }
     setEditNote(n);
     setSheetOpen(true);
   };
+
+  useEffect(() => {
+    if (!sheetOpen || !editNote) return;
+    const current = allNotes.find((n) => n._id === editNote._id);
+    if (current && !current.isLocked && editNote.isLocked) {
+      setEditNote(current);
+    }
+  }, [allNotes, editNote, sheetOpen]);
 
   const uploadDrafts = async (drafts: DraftPhoto[]): Promise<string[]> => {
     const ids: string[] = [];
@@ -196,7 +219,12 @@ export default function HomeScreen() {
   ) => {
     const photoIds = (await uploadDrafts(draftPhotos)) as any;
     if (editId) {
-      await updateNote({ id: editId as any, body, photoIds });
+      await updateNote({
+        id: editId as any,
+        body,
+        photoIds,
+        pinHash: activePinHash ?? undefined,
+      });
     } else {
       const base = sameDay(cursor, new Date())
         ? Date.now()
@@ -206,7 +234,10 @@ export default function HomeScreen() {
   };
 
   const handleDeleteNote = async (id: string) => {
-    await removeNote({ id: id as any });
+    await removeNote({
+      id: id as any,
+      pinHash: activePinHash ?? undefined,
+    });
   };
 
   const handleSignOut = () => {
@@ -338,7 +369,19 @@ export default function HomeScreen() {
           </Text>
 
           <View style={styles.actionGroup}>
-            {view !== 'important' && (
+            {view === 'important' ? (
+              <TouchableOpacity
+                style={[styles.iconButton, { backgroundColor: colors.backgroundElement }]}
+                onPress={() => {
+                  setActivePinHash(null);
+                  setUnlocked(false);
+                  setView('day');
+                }}
+                hitSlop={6}
+              >
+                <Feather name="lock" size={16} color={colors.text} />
+              </TouchableOpacity>
+            ) : (
               <>
                 <TouchableOpacity
                   style={[styles.iconButton, { backgroundColor: colors.backgroundElement }]}
