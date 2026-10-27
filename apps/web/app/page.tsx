@@ -37,6 +37,7 @@ type Note = {
   important: boolean
   createdAt: number
   ownerId: string
+  isLocked?: boolean
 }
 
 type DraftPhoto =
@@ -99,17 +100,23 @@ const startOfDay = (d: Date) => {
 const hasClerkSession = () => {
   if (typeof document === "undefined") return false
   return (
-    /(?:^|;\s*)(?:__session|__client_uat|__clerk_db_jwt)\s*=\s*([^;]+)/.test(document.cookie) &&
-    !/(?:^|;\s*)__client_uat\s*=\s*0(?:;|$)/.test(document.cookie)
+    /(?:^|;\s*)(?:__session|__client_uat|__clerk_db_jwt)\s*=\s*([^;]+)/.test(
+      document.cookie
+    ) && !/(?:^|;\s*)__client_uat\s*=\s*0(?:;|$)/.test(document.cookie)
   )
 }
 
 export default function Page() {
   const { isLoaded, isSignedIn, userId } = useAuth()
-  const notes = useQuery(api.notes.listMine, {}) as Note[] | undefined
+  const [activePinHash, setActivePinHash] = useState<string | null>(null)
+  const unlocked = Boolean(activePinHash)
+  const notes = useQuery(
+    api.notes.listMine,
+    activePinHash ? { pinHash: activePinHash } : {}
+  ) as Note[] | undefined
   const settings = useQuery(api.userSettings.getMe, {}) as
     | {
-        pinHash?: string
+        hasPin: boolean
       }
     | null
     | undefined
@@ -120,17 +127,19 @@ export default function Page() {
   const getUploadUrl = useMutation(api.notes.generateUploadUrl)
   const setPinHash = useMutation(api.userSettings.setPinHash)
   const removePin = useMutation(api.userSettings.removePin)
+  const verifyPin = useMutation(api.userSettings.verifyPin)
 
   const [view, setView] = useState<View>("day")
   const [cursor, setCursor] = useState<Date>(() => new Date())
-  const [unlocked, setUnlocked] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [draftBody, setDraftBody] = useState("")
   const [draftPhotos, setDraftPhotos] = useState<DraftPhoto[]>([])
   const [saving, setSaving] = useState(false)
   const [pinOpen, setPinOpen] = useState(false)
-  const [pinMode, setPinMode] = useState<"set" | "check" | "reset" | "manage">("check")
+  const [pinMode, setPinMode] = useState<"set" | "check" | "reset" | "manage">(
+    "check"
+  )
   const [pinValue, setPinValue] = useState("")
   const [pinError, setPinError] = useState("")
   const pinResolve = useRef<((ok: boolean) => void) | null>(null)
@@ -151,7 +160,7 @@ export default function Page() {
     const q = searchQuery.trim().toLowerCase()
     if (!q) return []
     return all
-      .filter((n) => n.body.toLowerCase().includes(q))
+      .filter((n) => !n.isLocked && n.body.toLowerCase().includes(q))
       .sort((a, b) => b.createdAt - a.createdAt)
   }, [all, searchQuery])
 
@@ -248,14 +257,16 @@ export default function Page() {
         setPinError("4 characters or more.")
         return
       }
-      await setPinHash({ pinHash: await hashPin(userId, pinValue) })
-      setUnlocked(true)
+      const hash = await hashPin(userId, pinValue)
+      await setPinHash({ pinHash: hash })
+      setActivePinHash(hash)
       closePin(true)
       return
     }
     const hash = await hashPin(userId, pinValue)
-    if (settings?.pinHash && hash === settings.pinHash) {
-      setUnlocked(true)
+    const ok = await verifyPin({ pinHash: hash })
+    if (ok) {
+      setActivePinHash(hash)
       closePin(true)
     } else {
       setPinError("Wrong PIN.")
@@ -264,8 +275,8 @@ export default function Page() {
 
   const handleRemovePin = async () => {
     try {
-      await removePin()
-      setUnlocked(false)
+      await removePin({ pinHash: activePinHash ?? undefined })
+      setActivePinHash(null)
       if (view === "important") {
         setView("day")
       }
@@ -281,7 +292,7 @@ export default function Page() {
 
   const needPin = useCallback(async (): Promise<boolean> => {
     if (unlocked) return true
-    if (!settings?.pinHash) return askPin("set")
+    if (!settings?.hasPin) return askPin("set")
     return askPin("check")
   }, [unlocked, settings, askPin])
 
@@ -294,8 +305,12 @@ export default function Page() {
   }
 
   const toggleStar = async (note: Note) => {
-    if (!note.important && !(await needPin())) return
-    await setImportant({ id: note._id as any, important: !note.important })
+    if ((note.isLocked || !note.important || !unlocked) && !(await needPin())) return
+    await setImportant({
+      id: note._id as any,
+      important: !note.important,
+      pinHash: activePinHash ?? undefined,
+    })
   }
 
   const openNew = () => {
@@ -305,7 +320,13 @@ export default function Page() {
     setSheetOpen(true)
   }
 
-  const openEdit = (note: Note) => {
+  const openEdit = async (note: Note) => {
+    if (note.isLocked || (note.important && !unlocked)) {
+      const ok = await needPin()
+      if (!ok) return
+      const fresh = all.find((n) => n._id === note._id && !n.isLocked)
+      if (fresh) note = fresh
+    }
     setEditId(note._id)
     setDraftBody(note.body)
     setDraftPhotos(
@@ -365,6 +386,21 @@ export default function Page() {
     return ids
   }
 
+  useEffect(() => {
+    if (!sheetOpen || !editId) return
+    const current = all.find((n) => n._id === editId)
+    if (current && !current.isLocked && !draftBody && !draftPhotos.length) {
+      setDraftBody(current.body)
+      setDraftPhotos(
+        current.photoIds.map((id, i) => ({
+          kind: "stored" as const,
+          storageId: id,
+          url: current.photoUrls[i] ?? "",
+        }))
+      )
+    }
+  }, [all, editId, sheetOpen, draftBody, draftPhotos.length])
+
   const saveNote = async () => {
     const body = draftBody.trim()
     if ((!body && !draftPhotos.length) || saving) return
@@ -372,7 +408,12 @@ export default function Page() {
     try {
       const photoIds = (await uploadDrafts()) as any
       if (editId) {
-        await updateNote({ id: editId as any, body, photoIds })
+        await updateNote({
+          id: editId as any,
+          body,
+          photoIds,
+          pinHash: activePinHash ?? undefined,
+        })
       } else {
         const base = sameDay(cursor, new Date())
           ? Date.now()
@@ -387,7 +428,10 @@ export default function Page() {
 
   const deleteNote = async () => {
     if (editId && confirm("Delete this note.")) {
-      await removeNote({ id: editId as any })
+      await removeNote({
+        id: editId as any,
+        pinHash: activePinHash ?? undefined,
+      })
       setSheetOpen(false)
     }
   }
@@ -496,7 +540,7 @@ export default function Page() {
                   size="sm"
                   variant="secondary"
                   onClick={() => {
-                    setUnlocked(false)
+                    setActivePinHash(null)
                     setView("day")
                   }}
                   title="Lock notes"
@@ -559,6 +603,7 @@ export default function Page() {
                 onStar={toggleStar}
                 onOpen={openEdit}
                 onViewer={(l, i) => setViewer({ list: l, index: i })}
+                unlocked={unlocked}
               />
             )}
             {view === "month" && (
@@ -566,6 +611,7 @@ export default function Page() {
                 cursor={cursor}
                 notes={all}
                 onDrill={(d) => drill("day", d)}
+                unlocked={unlocked}
               />
             )}
             {view === "year" && (
@@ -573,6 +619,7 @@ export default function Page() {
                 cursor={cursor}
                 notes={all}
                 onDrill={(d) => drill("month", d)}
+                unlocked={unlocked}
               />
             )}
             {view === "important" && (
@@ -581,6 +628,7 @@ export default function Page() {
                 onStar={toggleStar}
                 onOpen={openEdit}
                 onViewer={(l, i) => setViewer({ list: l, index: i })}
+                unlocked={unlocked}
               />
             )}
           </>
@@ -692,7 +740,7 @@ export default function Page() {
                 ? "Type your PIN."
                 : pinMode === "reset"
                   ? "Reset your PIN. 4 characters or more, or remove it."
-                  : settings?.pinHash
+                  : settings?.hasPin
                     ? "Enter a new PIN to change it, or remove PIN protection."
                     : "Set a PIN (4 characters or more)."}
           </p>
@@ -740,7 +788,8 @@ export default function Page() {
             >
               {pinMode === "reset" ? "Back" : "Cancel"}
             </Button>
-            {(pinMode === "reset" || (pinMode === "manage" && settings?.pinHash)) && (
+            {(pinMode === "reset" ||
+              (pinMode === "manage" && settings?.hasPin)) && (
               <Button
                 variant="destructive"
                 className="flex-1"
@@ -794,7 +843,9 @@ export default function Page() {
             ) : (
               <div className="space-y-1">
                 {matchingNotes.map((note) => {
-                  const isLocked = note.important && !unlocked
+                  const isLocked = Boolean(
+                    note.isLocked ?? (note.important && !unlocked)
+                  )
                   const d = new Date(note.createdAt)
                   const timeStr = `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} · ${fmtHour(d.getHours())}`
                   return (
@@ -927,17 +978,28 @@ function NoteCard({
   onStar,
   onOpen,
   onViewer,
+  unlocked,
 }: {
   note: Note
   onStar: (n: Note) => void
   onOpen: (n: Note) => void
   onViewer: (list: string[], i: number) => void
+  unlocked: boolean
 }) {
+  const isLocked = Boolean(note.isLocked ?? (note.important && !unlocked))
   return (
     <Card className="my-1.5 cursor-pointer p-3" onClick={() => onOpen(note)}>
       <div className="flex items-start justify-between gap-2">
         <span className="min-w-0 text-sm">
-          {note.body.trim() ? note.body : "photo"}
+          {isLocked ? (
+            <span className="flex items-center gap-1 italic text-muted-foreground">
+              <Lock className="inline size-3" /> Locked note
+            </span>
+          ) : note.body.trim() ? (
+            note.body
+          ) : (
+            "photo"
+          )}
         </span>
         <button
           className={`flex-none pl-1 text-sm ${note.important ? "text-amber-mineral opacity-100" : "text-muted-foreground opacity-45"}`}
@@ -947,26 +1009,31 @@ function NoteCard({
           }}
           aria-label="toggle important"
         >
-          <Star
-            className="size-3.5"
-            fill={note.important ? "currentColor" : "none"}
-          />
+          {isLocked ? (
+            <Lock className="size-3.5 text-muted-foreground" />
+          ) : (
+            <Star
+              className="size-3.5"
+              fill={note.important ? "currentColor" : "none"}
+            />
+          )}
         </button>
       </div>
-      {note.photoUrls.map((u, i) => (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          key={`${note._id}-${i}`}
-          src={u}
-          alt=""
-          loading="lazy"
-          className="mt-2 max-h-64 w-full cursor-zoom-in rounded-lg object-cover"
-          onClick={(e) => {
-            e.stopPropagation()
-            onViewer(note.photoUrls, i)
-          }}
-        />
-      ))}
+      {!isLocked &&
+        note.photoUrls.map((u, i) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={`${note._id}-${i}`}
+            src={u}
+            alt=""
+            loading="lazy"
+            className="mt-2 max-h-64 w-full cursor-zoom-in rounded-lg object-cover"
+            onClick={(e) => {
+              e.stopPropagation()
+              onViewer(note.photoUrls, i)
+            }}
+          />
+        ))}
       <small className="mt-1 block text-[11px] text-muted-foreground">
         {new Date(note.createdAt).toLocaleDateString([], {
           month: "short",
@@ -977,7 +1044,7 @@ function NoteCard({
           hour: "numeric",
           minute: "2-digit",
         })}
-        {note.photoUrls.length
+        {!isLocked && note.photoUrls.length
           ? ` · ${note.photoUrls.length} photo${note.photoUrls.length > 1 ? "s" : ""}`
           : ""}
       </small>
@@ -991,12 +1058,14 @@ function DayRail({
   onStar,
   onOpen,
   onViewer,
+  unlocked,
 }: {
   notes: Note[]
   cursor: Date
   onStar: (n: Note) => void
   onOpen: (n: Note) => void
   onViewer: (list: string[], i: number) => void
+  unlocked: boolean
 }) {
   const nowH = new Date().getHours()
   const isToday = sameDay(cursor, new Date())
@@ -1034,6 +1103,7 @@ function DayRail({
                 onStar={onStar}
                 onOpen={onOpen}
                 onViewer={onViewer}
+                unlocked={unlocked}
               />
             ))}
           </div>
@@ -1060,10 +1130,12 @@ function MonthView({
   cursor,
   notes,
   onDrill,
+  unlocked,
 }: {
   cursor: Date
   notes: Note[]
   onDrill: (d: Date) => void
+  unlocked: boolean
 }) {
   const y = cursor.getFullYear()
   const m = cursor.getMonth()
@@ -1110,9 +1182,11 @@ function MonthView({
               <span className="min-w-0">
                 <span className="block text-[13px] text-muted-foreground max-sm:truncate sm:line-clamp-3">
                   {list.length
-                    ? list[0]?.body.trim()
-                      ? list[0]?.body
-                      : "photo"
+                    ? list[0]?.isLocked || (list[0]?.important && !unlocked)
+                      ? "🔒 Locked note"
+                      : list[0]?.body.trim()
+                        ? list[0]?.body
+                        : "photo"
                     : "—"}
                 </span>
                 <CountDots count={list.length} />
@@ -1134,10 +1208,12 @@ function YearView({
   cursor,
   notes,
   onDrill,
+  unlocked,
 }: {
   cursor: Date
   notes: Note[]
   onDrill: (d: Date) => void
+  unlocked: boolean
 }) {
   const yr = cursor.getFullYear()
   const counts = MONTHS.map(
@@ -1192,9 +1268,11 @@ function YearView({
               <span className="min-w-0">
                 <span className="block text-[13px] text-muted-foreground max-sm:truncate sm:line-clamp-3">
                   {monthNotes.length
-                    ? monthNotes[0]?.body.trim()
-                      ? monthNotes[0]?.body
-                      : "photo"
+                    ? monthNotes[0]?.isLocked || (monthNotes[0]?.important && !unlocked)
+                      ? "🔒 Locked note"
+                      : monthNotes[0]?.body.trim()
+                        ? monthNotes[0]?.body
+                        : "photo"
                     : "—"}
                 </span>
                 <CountDots count={counts[i] ?? 0} />
@@ -1222,11 +1300,13 @@ function ImportantView({
   onStar,
   onOpen,
   onViewer,
+  unlocked,
 }: {
   notes: Note[]
   onStar: (n: Note) => void
   onOpen: (n: Note) => void
   onViewer: (list: string[], i: number) => void
+  unlocked: boolean
 }) {
   if (!notes.length)
     return (
@@ -1243,6 +1323,7 @@ function ImportantView({
           onStar={onStar}
           onOpen={onOpen}
           onViewer={onViewer}
+          unlocked={unlocked}
         />
       ))}
     </div>

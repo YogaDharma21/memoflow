@@ -16,12 +16,14 @@ type Props = {
   onStar: (n: Note) => void;
   onOpen: (n: Note) => void;
   onViewer: (list: string[], i: number) => void;
+  unlocked?: boolean;
 };
 
-export function NoteCard({ note, onStar, onOpen, onViewer }: Props) {
+export function NoteCard({ note, onStar, onOpen, onViewer, unlocked }: Props) {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
 
+  const isLocked = Boolean(note.isLocked ?? (note.important && !unlocked));
   const date = new Date(note.createdAt);
   const timeStr = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
@@ -40,15 +42,25 @@ export function NoteCard({ note, onStar, onOpen, onViewer }: Props) {
       onPress={() => onOpen(note)}
     >
       <View style={styles.header}>
-        <Text style={[styles.body, { color: colors.text }]}>
-          {note.body.trim() ? note.body : 'photo'}
+        <Text
+          style={[
+            styles.body,
+            {
+              color: isLocked ? colors.textSecondary : colors.text,
+              fontStyle: isLocked ? 'italic' : 'normal',
+            },
+          ]}
+        >
+          {isLocked ? '🔒 Locked note' : note.body.trim() ? note.body : 'photo'}
         </Text>
         <TouchableOpacity
           hitSlop={8}
           onPress={() => onStar(note)}
           style={styles.starButton}
         >
-          {note.important ? (
+          {isLocked ? (
+            <Feather name="lock" size={15} color={colors.textSecondary} />
+          ) : note.important ? (
             <FontAwesome name="star" size={15} color={colors.star} />
           ) : (
             <Feather name="star" size={15} color={colors.textSecondary} />
@@ -56,20 +68,21 @@ export function NoteCard({ note, onStar, onOpen, onViewer }: Props) {
         </TouchableOpacity>
       </View>
 
-      {note.photoUrls.map((url, i) => (
-        <TouchableOpacity
-          key={`${note._id}-${i}`}
-          activeOpacity={0.9}
-          onPress={() => onViewer(note.photoUrls, i)}
-          style={styles.imageWrapper}
-        >
-          <Image source={{ uri: url }} style={styles.image} resizeMode="cover" />
-        </TouchableOpacity>
-      ))}
+      {!isLocked &&
+        note.photoUrls.map((url, i) => (
+          <TouchableOpacity
+            key={`${note._id}-${i}`}
+            activeOpacity={0.9}
+            onPress={() => onViewer(note.photoUrls, i)}
+            style={styles.imageWrapper}
+          >
+            <Image source={{ uri: url }} style={styles.image} resizeMode="cover" />
+          </TouchableOpacity>
+        ))}
 
       <Text style={[styles.meta, { color: colors.textSecondary }]}>
         {dateStr} · {timeStr}
-        {note.photoUrls.length > 0
+        {!isLocked && note.photoUrls.length > 0
           ? ` · ${note.photoUrls.length} photo${note.photoUrls.length > 1 ? 's' : ''}`
           : ''}
       </Text>
