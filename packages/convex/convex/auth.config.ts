@@ -1,3 +1,6 @@
+// ponytail: Convex runtime injects process.env at deploy time without full node stdlib
+declare const process: { env: Record<string, string | undefined> };
+
 export default {
   providers: [
     {

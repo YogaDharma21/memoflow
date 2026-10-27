@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import * as notesApi from "../apps/web/convex/notes.ts";
-import * as settingsApi from "../apps/web/convex/userSettings.ts";
+import * as notesApi from "../packages/convex/convex/notes.ts";
+import * as settingsApi from "../packages/convex/convex/userSettings.ts";
 
 function createMockCtx({ userId = "user_123", pinHash = null, notes = [] } = {}) {
   const store = {

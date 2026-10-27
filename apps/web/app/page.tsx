@@ -3,6 +3,7 @@ import { LandingPage } from "@/components/landing-page"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useMutation, useQuery } from "convex/react"
+import { api } from "@workspace/convex/api"
 import { useAuth, SignInButton, UserButton } from "@clerk/nextjs"
 import {
   ArrowUp,
@@ -110,23 +111,23 @@ export default function Page() {
   const [activePinHash, setActivePinHash] = useState<string | null>(null)
   const unlocked = Boolean(activePinHash)
   const notes = useQuery(
-    "notes:listMine" as any,
+    api.notes.listMine,
     activePinHash ? { pinHash: activePinHash } : {}
   ) as Note[] | undefined
-  const settings = useQuery("userSettings:getMe" as any, {}) as
+  const settings = useQuery(api.userSettings.getMe, {}) as
     | {
         hasPin: boolean
       }
     | null
     | undefined
-  const createNote = useMutation("notes:create" as any)
-  const updateNote = useMutation("notes:update" as any)
-  const removeNote = useMutation("notes:remove" as any)
-  const setImportant = useMutation("notes:setImportant" as any)
-  const getUploadUrl = useMutation("notes:generateUploadUrl" as any)
-  const setPinHash = useMutation("userSettings:setPinHash" as any)
-  const removePin = useMutation("userSettings:removePin" as any)
-  const verifyPin = useMutation("userSettings:verifyPin" as any)
+  const createNote = useMutation(api.notes.create)
+  const updateNote = useMutation(api.notes.update)
+  const removeNote = useMutation(api.notes.remove)
+  const setImportant = useMutation(api.notes.setImportant)
+  const getUploadUrl = useMutation(api.notes.generateUploadUrl)
+  const setPinHash = useMutation(api.userSettings.setPinHash)
+  const removePin = useMutation(api.userSettings.removePin)
+  const verifyPin = useMutation(api.userSettings.verifyPin)
 
   const [view, setView] = useState<View>("day")
   const [cursor, setCursor] = useState<Date>(() => new Date())
