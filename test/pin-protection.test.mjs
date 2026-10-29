@@ -7,7 +7,7 @@ function createMockCtx({ userId = "user_123", pinHash = null, notes = [] } = {})
     userSettings: pinHash ? [{ _id: "s1", clerkUserId: userId, pinHash }] : [],
     notes: notes.map((n, i) => ({
       _id: n._id || `note_${i}`,
-      ownerId: userId,
+      ownerId: n.ownerId || userId,
       body: n.body || "",
       photoIds: n.photoIds || [],
       important: Boolean(n.important),
@@ -144,12 +144,35 @@ async function runTests() {
     assert.equal(windowedList.length, 1, "Windowed query returns only matching timestamp notes");
     assert.equal(windowedList[0]._id, "n2", "Windowed query matches note n2");
 
-    // Case F: On-demand photo URL resolution via getPhotoUrls
-    const resolvedUrls = await notesApi.getPhotoUrls._handler(ctxNoPin, { photoIds: ["p2"] });
-    assert.deepEqual(resolvedUrls, { p2: "https://storage.mock/p2" }, "getPhotoUrls maps storage IDs to URLs");
+    const invertedRange = await notesApi.listMine._handler(ctxNoPin, { from: 300, to: 200 });
+    assert.deepEqual(invertedRange, [], "Inverted range from > to returns empty array");
 
-    const ctxUnauth = createMockCtx({ userId: null, notes: sampleNotes });
-    const unauthUrls = await notesApi.getPhotoUrls._handler(ctxUnauth, { photoIds: ["p2"] });
+    // Case F: Secure on-demand photo URL resolution via getPhotoUrls
+    const sampleWithOther = [
+      ...sampleNotes,
+      { _id: "other1", ownerId: "other_user", important: false, body: "not mine", photoIds: ["p_other"] },
+    ];
+    const ctxScoped = createMockCtx({ pinHash: "pin_1234", notes: sampleWithOther });
+
+    // Owned unlocked note returns photo URL
+    const resolvedUrls = await notesApi.getPhotoUrls._handler(ctxScoped, { noteIds: ["n2"] });
+    assert.deepEqual(resolvedUrls, { p2: "https://storage.mock/p2" }, "getPhotoUrls maps storage IDs to URLs for owned notes");
+
+    // Foreign note does NOT return photo URL
+    const foreignUrls = await notesApi.getPhotoUrls._handler(ctxScoped, { noteIds: ["other1"] });
+    assert.deepEqual(foreignUrls, {}, "getPhotoUrls denies photo resolution for notes owned by other users");
+
+    // Locked note without valid PIN does NOT return photo URL
+    const lockedUrls = await notesApi.getPhotoUrls._handler(ctxScoped, { noteIds: ["n1"] });
+    assert.deepEqual(lockedUrls, {}, "getPhotoUrls denies photo resolution for locked notes without PIN");
+
+    // Locked note with valid PIN returns photo URL
+    const unlockedUrls = await notesApi.getPhotoUrls._handler(ctxScoped, { noteIds: ["n1"], pinHash: "pin_1234" });
+    assert.deepEqual(unlockedUrls, { p1: "https://storage.mock/p1" }, "getPhotoUrls permits photo resolution for locked notes with valid PIN");
+
+    // Unauthenticated caller returns empty map
+    const ctxUnauth = createMockCtx({ userId: null, notes: sampleWithOther });
+    const unauthUrls = await notesApi.getPhotoUrls._handler(ctxUnauth, { noteIds: ["n2"] });
     assert.deepEqual(unauthUrls, {}, "getPhotoUrls returns empty map for unauthenticated caller");
   }
 

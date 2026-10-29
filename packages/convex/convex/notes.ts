@@ -26,6 +26,10 @@ export const listMine = query({
       !settings?.pinHash ||
       (Boolean(args.pinHash) && args.pinHash === settings.pinHash);
 
+    if (args.from !== undefined && args.to !== undefined && args.from > args.to) {
+      return [];
+    }
+
     const notes = await ctx.db
       .query("notes")
       .withIndex("by_owner_created", (q: any) => {
@@ -52,13 +56,38 @@ export const listMine = query({
 
 export const getPhotoUrls = query({
   args: {
-    photoIds: v.array(v.id("_storage")),
+    noteIds: v.array(v.id("notes")),
+    pinHash: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return {};
+    const ownerId = identity.subject;
+
+    const settings = await ctx.db
+      .query("userSettings")
+      .withIndex("by_clerk_user", (q: any) => q.eq("clerkUserId", ownerId))
+      .unique();
+    const isUnlocked =
+      !settings?.pinHash ||
+      (Boolean(args.pinHash) && args.pinHash === settings.pinHash);
+
+    const notes = await Promise.all(
+      args.noteIds.map((id) => ctx.db.get(id)),
+    );
+
+    const validPhotoIds: string[] = [];
+    for (const note of notes) {
+      if (!note || note.ownerId !== ownerId) continue;
+      if (note.important && !isUnlocked) continue;
+      if (Array.isArray(note.photoIds)) {
+        validPhotoIds.push(...note.photoIds);
+      }
+    }
+
+    const uniquePhotoIds = Array.from(new Set(validPhotoIds));
     const entries = await Promise.all(
-      args.photoIds.map(async (id: any) => {
+      uniquePhotoIds.map(async (id: any) => {
         try {
           const url = await ctx.storage.getUrl(id);
           return [id, url] as const;

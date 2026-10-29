@@ -101,21 +101,31 @@ export default function HomeScreen() {
     [allNotes]
   );
 
-  const activePhotoIds = useMemo(() => {
+  const activeNoteIds = useMemo(() => {
     const visibleNotes =
       view === 'day' ? rawDayNotes : view === 'important' ? rawImportantNotes : [];
-    const ids = visibleNotes.flatMap((n) =>
-      n.isLocked || (n.important && !unlocked) ? [] : n.photoIds
-    );
-    if (editNote && !editNote.isLocked && (!editNote.important || unlocked)) {
-      ids.push(...editNote.photoIds);
+    const ids = visibleNotes
+      .filter((n) => !n.isLocked && (!n.important || unlocked) && n.photoIds.length > 0)
+      .map((n) => n._id);
+    if (
+      editNote &&
+      !editNote.isLocked &&
+      (!editNote.important || unlocked) &&
+      editNote.photoIds.length > 0
+    ) {
+      ids.push(editNote._id);
     }
     return Array.from(new Set(ids));
   }, [view, rawDayNotes, rawImportantNotes, editNote, unlocked]);
 
   const photoUrlMap = (useQuery(
     api.notes.getPhotoUrls,
-    activePhotoIds.length ? { photoIds: activePhotoIds as any } : 'skip'
+    activeNoteIds.length
+      ? {
+          noteIds: activeNoteIds as any,
+          pinHash: activePinHash ?? undefined,
+        }
+      : 'skip'
   ) ?? {}) as Record<string, string>;
 
   const dayNotes = useMemo(() => {

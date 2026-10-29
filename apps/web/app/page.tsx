@@ -169,20 +169,25 @@ export default function Page() {
     [all]
   )
 
-  const activePhotoIds = useMemo(() => {
+  const activeNoteIds = useMemo(() => {
     const visibleNotes =
       view === "day"
         ? dayNotesRaw
         : view === "important"
           ? importantNotesRaw
           : []
-    const ids = visibleNotes.flatMap((n) =>
-      n.isLocked || (n.important && !unlocked) ? [] : n.photoIds
-    )
+    const ids = visibleNotes
+      .filter((n) => !n.isLocked && (!n.important || unlocked) && n.photoIds.length > 0)
+      .map((n) => n._id)
     if (editId) {
       const editing = all.find((n) => n._id === editId)
-      if (editing && !editing.isLocked && (!editing.important || unlocked)) {
-        ids.push(...editing.photoIds)
+      if (
+        editing &&
+        !editing.isLocked &&
+        (!editing.important || unlocked) &&
+        editing.photoIds.length > 0
+      ) {
+        ids.push(editing._id)
       }
     }
     return Array.from(new Set(ids))
@@ -190,7 +195,12 @@ export default function Page() {
 
   const photoUrlMap = (useQuery(
     api.notes.getPhotoUrls,
-    activePhotoIds.length ? { photoIds: activePhotoIds as any } : "skip"
+    activeNoteIds.length
+      ? {
+          noteIds: activeNoteIds as any,
+          pinHash: activePinHash ?? undefined,
+        }
+      : "skip"
   ) ?? {}) as Record<string, string>
 
   const dayNotes = useMemo(
