@@ -193,11 +193,9 @@ export default function HomeScreen() {
   }, [allNotes, editNote, sheetOpen]);
 
   const uploadDrafts = async (drafts: DraftPhoto[]): Promise<string[]> => {
-    const ids: string[] = [];
-    for (const p of drafts) {
-      if (p.kind === 'stored') {
-        ids.push(p.storageId);
-      } else {
+    return Promise.all(
+      drafts.map(async (p) => {
+        if (p.kind === 'stored') return p.storageId;
         const url = (await getUploadUrl({})) as string;
         const response = await fetch(p.uri);
         const blob = await response.blob();
@@ -208,10 +206,9 @@ export default function HomeScreen() {
         });
         if (!res.ok) throw new Error('Upload failed');
         const { storageId } = (await res.json()) as { storageId: string };
-        ids.push(storageId);
-      }
-    }
-    return ids;
+        return storageId;
+      })
+    );
   };
 
   const handleSaveNote = async (
