@@ -156,6 +156,64 @@ export default function Page() {
 
   const all = useMemo(() => notes ?? [], [notes])
 
+  const dayNotesRaw = useMemo(
+    () =>
+      all
+        .filter((n) => sameDay(new Date(n.createdAt), cursor))
+        .sort((a, b) => a.createdAt - b.createdAt),
+    [all, cursor]
+  )
+
+  const importantNotesRaw = useMemo(
+    () => all.filter((n) => n.important).sort((a, b) => b.createdAt - a.createdAt),
+    [all]
+  )
+
+  const activePhotoIds = useMemo(() => {
+    const visibleNotes =
+      view === "day"
+        ? dayNotesRaw
+        : view === "important"
+          ? importantNotesRaw
+          : []
+    const ids = visibleNotes.flatMap((n) =>
+      n.isLocked || (n.important && !unlocked) ? [] : n.photoIds
+    )
+    if (editId) {
+      const editing = all.find((n) => n._id === editId)
+      if (editing && !editing.isLocked && (!editing.important || unlocked)) {
+        ids.push(...editing.photoIds)
+      }
+    }
+    return Array.from(new Set(ids))
+  }, [view, dayNotesRaw, importantNotesRaw, editId, all, unlocked])
+
+  const photoUrlMap = (useQuery(
+    api.notes.getPhotoUrls,
+    activePhotoIds.length ? { photoIds: activePhotoIds as any } : "skip"
+  ) ?? {}) as Record<string, string>
+
+  const dayNotes = useMemo(
+    () =>
+      dayNotesRaw.map((n) => ({
+        ...n,
+        photoUrls: n.photoIds
+          .map((id) => photoUrlMap[id])
+          .filter((u): u is string => Boolean(u)),
+      })),
+    [dayNotesRaw, photoUrlMap]
+  )
+
+  const importantNotes = useMemo(
+    () =>
+      importantNotesRaw.map((n) => ({
+        ...n,
+        photoUrls: n.photoIds
+          .map((id) => photoUrlMap[id])
+          .filter((u): u is string => Boolean(u)),
+      })),
+    [importantNotesRaw, photoUrlMap]
+
   const matchingNotes = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     if (!q) return []
@@ -330,10 +388,10 @@ export default function Page() {
     setEditId(note._id)
     setDraftBody(note.body)
     setDraftPhotos(
-      note.photoIds.map((id, i) => ({
+      note.photoIds.map((id) => ({
         kind: "stored" as const,
         storageId: id,
-        url: note.photoUrls[i] ?? "",
+        url: photoUrlMap[id] ?? "",
       }))
     )
     setSheetOpen(true)
@@ -392,14 +450,29 @@ export default function Page() {
     if (current && !current.isLocked && !draftBody && !draftPhotos.length) {
       setDraftBody(current.body)
       setDraftPhotos(
-        current.photoIds.map((id, i) => ({
+        current.photoIds.map((id) => ({
           kind: "stored" as const,
           storageId: id,
-          url: current.photoUrls[i] ?? "",
+          url: photoUrlMap[id] ?? "",
         }))
       )
     }
-  }, [all, editId, sheetOpen, draftBody, draftPhotos.length])
+  }, [all, editId, sheetOpen, draftBody, draftPhotos.length, photoUrlMap])
+
+  useEffect(() => {
+    if (!sheetOpen || !editId) return
+    setDraftPhotos((prev) => {
+      let changed = false
+      const next = prev.map((p) => {
+        if (p.kind === "stored" && !p.url && photoUrlMap[p.storageId]) {
+          changed = true
+          return { ...p, url: photoUrlMap[p.storageId]! }
+        }
+        return p
+      })
+      return changed ? next : prev
+    })
+  }, [photoUrlMap, sheetOpen, editId])
 
   const saveNote = async () => {
     const body = draftBody.trim()
@@ -443,12 +516,6 @@ export default function Page() {
   }
   if (!isSignedIn) return <LandingPage />
 
-  const dayNotes = all
-    .filter((n) => sameDay(new Date(n.createdAt), cursor))
-    .sort((a, b) => a.createdAt - b.createdAt)
-  const importantNotes = all
-    .filter((n) => n.important)
-    .sort((a, b) => b.createdAt - a.createdAt)
   const offToday = !(sameDay(cursor, new Date()) && view === "day")
 
   return (
@@ -1044,8 +1111,8 @@ function NoteCard({
           hour: "numeric",
           minute: "2-digit",
         })}
-        {!isLocked && note.photoUrls.length
-          ? ` · ${note.photoUrls.length} photo${note.photoUrls.length > 1 ? "s" : ""}`
+        {!isLocked && note.photoIds.length
+          ? ` · ${note.photoIds.length} photo${note.photoIds.length > 1 ? "s" : ""}`
           : ""}
       </small>
     </Card>

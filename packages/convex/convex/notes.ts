@@ -10,6 +10,8 @@ async function requireOwnerId(ctx: any): Promise<string> {
 export const listMine = query({
   args: {
     pinHash: v.optional(v.string()),
+    from: v.optional(v.number()),
+    to: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -26,29 +28,48 @@ export const listMine = query({
 
     const notes = await ctx.db
       .query("notes")
-      .withIndex("by_owner_created", (q: any) => q.eq("ownerId", ownerId))
+      .withIndex("by_owner_created", (q: any) => {
+        let range = q.eq("ownerId", ownerId);
+        if (args.from !== undefined) range = range.gte("createdAt", args.from);
+        if (args.to !== undefined) range = range.lte("createdAt", args.to);
+        return range;
+      })
       .order("desc")
       .collect();
 
-    const withUrls = await Promise.all(
-      notes.map(async (n: any) => {
-        const locked = Boolean(n.important && !isUnlocked);
-        const photoUrls = locked
-          ? []
-          : (
-              await Promise.all(
-                n.photoIds.map((id: any) => ctx.storage.getUrl(id)),
-              )
-            ).filter((u): u is string => u !== null);
-        return {
-          ...n,
-          body: locked ? "" : n.body,
-          photoUrls,
-          isLocked: locked,
-        };
+    return notes.map((n: any) => {
+      const locked = Boolean(n.important && !isUnlocked);
+      return {
+        ...n,
+        body: locked ? "" : n.body,
+        photoIds: locked ? [] : n.photoIds,
+        photoUrls: [],
+        isLocked: locked,
+      };
+    });
+  },
+});
+
+export const getPhotoUrls = query({
+  args: {
+    photoIds: v.array(v.id("_storage")),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return {};
+    const entries = await Promise.all(
+      args.photoIds.map(async (id: any) => {
+        try {
+          const url = await ctx.storage.getUrl(id);
+          return [id, url] as const;
+        } catch {
+          return [id, null] as const;
+        }
       }),
     );
-    return withUrls;
+    return Object.fromEntries(
+      entries.filter((entry): entry is [string, string] => entry[1] !== null),
+    );
   },
 });
 

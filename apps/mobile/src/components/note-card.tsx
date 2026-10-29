@@ -82,8 +82,8 @@ export function NoteCard({ note, onStar, onOpen, onViewer, unlocked }: Props) {
 
       <Text style={[styles.meta, { color: colors.textSecondary }]}>
         {dateStr} · {timeStr}
-        {!isLocked && note.photoUrls.length > 0
-          ? ` · ${note.photoUrls.length} photo${note.photoUrls.length > 1 ? 's' : ''}`
+        {!isLocked && note.photoIds.length > 0
+          ? ` · ${note.photoIds.length} photo${note.photoIds.length > 1 ? 's' : ''}`
           : ''}
       </Text>
     </TouchableOpacity>
