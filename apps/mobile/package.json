@@ -30,6 +30,7 @@
     "@workspace/convex": "workspace:*",
     "convex": "^1.46.0",
     "expo-crypto": "~15.0.7",
+    "expo-image-manipulator": "~58.0.16",
     "expo-image-picker": "~17.0.10",
     "expo-secure-store": "~15.0.8",
     "@expo/vector-icons": "^15.0.3"

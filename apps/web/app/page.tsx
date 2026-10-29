@@ -26,6 +26,7 @@ import {
 } from "@workspace/ui/components/dialog"
 import { Sheet, SheetContent, SheetTitle } from "@workspace/ui/components/sheet"
 import { hashPin } from "@/lib/pin"
+import { compressImage } from "@/lib/image"
 
 type View = "day" | "month" | "year" | "important"
 
@@ -347,23 +348,27 @@ export default function Page() {
     }
   }
 
-  const onFiles = (files: FileList | null) => {
+  const onFiles = async (files: FileList | null) => {
     if (!files?.length) return
-    const made: DraftPhoto[] = Array.from(files).map((file) => ({
+    const currentReplace = replaceIdx.current
+    const list = Array.from(files)
+    if (fileRef.current) fileRef.current.value = ""
+    replaceIdx.current = -1
+
+    const compressed = await Promise.all(list.map((file) => compressImage(file)))
+    const made: DraftPhoto[] = compressed.map((file) => ({
       kind: "new" as const,
       file,
       url: URL.createObjectURL(file),
     }))
     setDraftPhotos((prev) => {
-      if (replaceIdx.current >= 0 && made[0]) {
+      if (currentReplace >= 0 && made[0]) {
         const next = prev.slice()
-        next[replaceIdx.current] = made[0]
+        next[currentReplace] = made[0]
         return next
       }
       return prev.concat(made)
     })
-    replaceIdx.current = -1
-    if (fileRef.current) fileRef.current.value = ""
   }
 
   const uploadDrafts = async (): Promise<string[]> => {

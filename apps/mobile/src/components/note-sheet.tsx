@@ -18,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Spacing } from '@/constants/theme';
 import { DraftPhoto, Note } from '@/types';
+import { compressMobileImage } from '@/lib/image';
 
 type Props = {
   visible: boolean;
@@ -63,14 +64,19 @@ export function NoteSheet({
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
-      quality: 0.8,
+      quality: 0.82,
     });
     if (!res.canceled && res.assets) {
-      const added: DraftPhoto[] = res.assets.map((a) => ({
-        kind: 'new',
-        uri: a.uri,
-        mimeType: a.mimeType || 'image/jpeg',
-      }));
+      const added: DraftPhoto[] = await Promise.all(
+        res.assets.map(async (a) => {
+          const compressed = await compressMobileImage(a, 2048, 0.82);
+          return {
+            kind: 'new',
+            uri: compressed.uri,
+            mimeType: compressed.mimeType,
+          };
+        })
+      );
       setDraftPhotos((prev) => [...prev, ...added]);
     }
   };
