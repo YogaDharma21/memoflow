@@ -417,7 +417,8 @@ export default function Page() {
       } else {
         const base = sameDay(cursor, new Date())
           ? Date.now()
-          : startOfDay(cursor).getTime() + new Date().getHours() * 3600000
+          : startOfDay(cursor).getTime() +
+            (Date.now() - startOfDay(new Date()).getTime())
         await createNote({ body, photoIds, createdAt: base })
       }
       setSheetOpen(false)
