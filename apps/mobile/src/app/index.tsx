@@ -15,6 +15,7 @@ import { api } from '@workspace/convex/api';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { Colors, Spacing } from '@/constants/theme';
 import { hashPin } from '@/lib/pin';
+import { setCachedPinHash, clearCachedPinHash } from '@/lib/biometrics';
 import { DraftPhoto, Note, View as ViewMode } from '@/types';
 
 import { AuthView } from '@/components/auth-view';
@@ -134,6 +135,7 @@ export default function HomeScreen() {
       }
       const hash = await hashPin(userId, pinValue);
       await setPinHash({ pinHash: hash });
+      await setCachedPinHash(userId, hash);
       setActivePinHash(hash);
       setUnlocked(true);
       closePin(true);
@@ -142,11 +144,25 @@ export default function HomeScreen() {
     const hash = await hashPin(userId, pinValue);
     const ok = await verifyPin({ pinHash: hash });
     if (ok) {
+      await setCachedPinHash(userId, hash);
       setActivePinHash(hash);
       setUnlocked(true);
       closePin(true);
     } else {
       setPinError('Wrong PIN.');
+    }
+  };
+
+  const submitBiometricHash = async (cachedHash: string) => {
+    if (!userId) return;
+    const ok = await verifyPin({ pinHash: cachedHash });
+    if (ok) {
+      setActivePinHash(cachedHash);
+      setUnlocked(true);
+      closePin(true);
+    } else {
+      await clearCachedPinHash(userId);
+      setPinError('PIN changed. Please enter PIN.');
     }
   };
 
@@ -245,7 +261,14 @@ export default function HomeScreen() {
   const handleSignOut = () => {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: () => signOut() },
+      {
+        text: 'Sign out',
+        style: 'destructive',
+        onPress: async () => {
+          if (userId) await clearCachedPinHash(userId);
+          signOut();
+        },
+      },
     ]);
   };
 
@@ -493,8 +516,10 @@ export default function HomeScreen() {
         visible={pinOpen}
         mode={pinMode}
         error={pinError}
+        userId={userId ?? undefined}
         onCancel={() => closePin(false)}
         onSubmit={submitPin}
+        onBiometricSuccess={submitBiometricHash}
       />
 
       {/* Search Dialog */}
