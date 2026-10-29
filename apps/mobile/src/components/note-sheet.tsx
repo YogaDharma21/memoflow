@@ -75,6 +75,26 @@ export function NoteSheet({
     }
   };
 
+  const onTakePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Camera access is required to take photos.');
+      return;
+    }
+    const res = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+    });
+    if (!res.canceled && res.assets) {
+      const added: DraftPhoto[] = res.assets.map((a) => ({
+        kind: 'new',
+        uri: a.uri,
+        mimeType: a.mimeType || 'image/jpeg',
+      }));
+      setDraftPhotos((prev) => [...prev, ...added]);
+    }
+  };
+
   const removePhoto = (index: number) => {
     setDraftPhotos((prev) => prev.filter((_, i) => i !== index));
   };
@@ -180,15 +200,27 @@ export function NoteSheet({
             </ScrollView>
           )}
 
-          <TouchableOpacity
-            style={styles.addPhotosButton}
-            onPress={onPickPhotos}
-          >
-            <Feather name="image" size={16} color={colors.textSecondary} />
-            <Text style={[styles.addPhotosText, { color: colors.textSecondary }]}>
-              {draftPhotos.length ? `${draftPhotos.length} photos` : 'Photos'}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={onTakePhoto}
+            >
+              <Feather name="camera" size={16} color={colors.textSecondary} />
+              <Text style={[styles.actionButtonText, { color: colors.textSecondary }]}>
+                Camera
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={onPickPhotos}
+            >
+              <Feather name="image" size={16} color={colors.textSecondary} />
+              <Text style={[styles.actionButtonText, { color: colors.textSecondary }]}>
+                {draftPhotos.length ? `${draftPhotos.length} photos` : 'Photos'}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity
             style={[styles.saveButton, { backgroundColor: colors.primary }]}
@@ -277,13 +309,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  addPhotosButton: {
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    marginTop: Spacing.two,
+  },
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.one,
-    marginTop: Spacing.two,
   },
-  addPhotosText: {
+  actionButtonText: {
     fontSize: 13,
     fontWeight: '600',
   },
