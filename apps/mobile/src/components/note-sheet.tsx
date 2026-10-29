@@ -60,38 +60,46 @@ export function NoteSheet({
   }, [editNote, visible]);
 
   const onPickPhotos = async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsMultipleSelection: true,
-      quality: 0.8,
-    });
-    if (!res.canceled && res.assets) {
-      const added: DraftPhoto[] = res.assets.map((a) => ({
-        kind: 'new',
-        uri: a.uri,
-        mimeType: a.mimeType || 'image/jpeg',
-      }));
-      setDraftPhotos((prev) => [...prev, ...added]);
+    try {
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        quality: 0.8,
+      });
+      if (!res.canceled && res.assets) {
+        const added: DraftPhoto[] = res.assets.map((a) => ({
+          kind: 'new',
+          uri: a.uri,
+          mimeType: a.mimeType || 'image/jpeg',
+        }));
+        setDraftPhotos((prev) => [...prev, ...added]);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Could not pick photos');
     }
   };
 
   const onTakePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission required', 'Camera access is required to take photos.');
-      return;
-    }
-    const res = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-    });
-    if (!res.canceled && res.assets) {
-      const added: DraftPhoto[] = res.assets.map((a) => ({
-        kind: 'new',
-        uri: a.uri,
-        mimeType: a.mimeType || 'image/jpeg',
-      }));
-      setDraftPhotos((prev) => [...prev, ...added]);
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Camera access is required to take photos.');
+        return;
+      }
+      const res = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+      });
+      if (!res.canceled && res.assets) {
+        const added: DraftPhoto[] = res.assets.map((a) => ({
+          kind: 'new',
+          uri: a.uri,
+          mimeType: a.mimeType || 'image/jpeg',
+        }));
+        setDraftPhotos((prev) => [...prev, ...added]);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Could not capture photo');
     }
   };
 
