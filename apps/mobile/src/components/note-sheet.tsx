@@ -101,8 +101,9 @@ export function NoteSheet({
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          await onDelete(editNote._id);
+          const id = editNote._id;
           onClose();
+          await onDelete(id);
         },
       },
     ]);

@@ -122,8 +122,48 @@ export default function Page() {
     | undefined
   const createNote = useMutation(api.notes.create)
   const updateNote = useMutation(api.notes.update)
-  const removeNote = useMutation(api.notes.remove)
-  const setImportant = useMutation(api.notes.setImportant)
+  const removeNote = useMutation(api.notes.remove).withOptimisticUpdate(
+    (localStore, { id, pinHash }) => {
+      const queryArgsList: Array<{ pinHash?: string }> = [{}]
+      if (activePinHash) queryArgsList.push({ pinHash: activePinHash })
+      if (pinHash && pinHash !== activePinHash) queryArgsList.push({ pinHash })
+      for (const qArgs of queryArgsList) {
+        const current = localStore.getQuery(api.notes.listMine, qArgs)
+        if (Array.isArray(current)) {
+          localStore.setQuery(
+            api.notes.listMine,
+            qArgs,
+            current.filter((n) => n._id !== id)
+          )
+        }
+      }
+    }
+  )
+  const setImportant = useMutation(api.notes.setImportant).withOptimisticUpdate(
+    (localStore, { id, important, pinHash }) => {
+      const queryArgsList: Array<{ pinHash?: string }> = [{}]
+      if (activePinHash) queryArgsList.push({ pinHash: activePinHash })
+      if (pinHash && pinHash !== activePinHash) queryArgsList.push({ pinHash })
+      for (const qArgs of queryArgsList) {
+        const current = localStore.getQuery(api.notes.listMine, qArgs)
+        if (Array.isArray(current)) {
+          localStore.setQuery(
+            api.notes.listMine,
+            qArgs,
+            current.map((n) =>
+              n._id === id
+                ? {
+                    ...n,
+                    important,
+                    isLocked: important ? Boolean(n.isLocked && !unlocked) : false,
+                  }
+                : n
+            )
+          )
+        }
+      }
+    }
+  )
   const getUploadUrl = useMutation(api.notes.generateUploadUrl)
   const setPinHash = useMutation(api.userSettings.setPinHash)
   const removePin = useMutation(api.userSettings.removePin)
@@ -428,11 +468,12 @@ export default function Page() {
 
   const deleteNote = async () => {
     if (editId && confirm("Delete this note.")) {
+      const id = editId
+      setSheetOpen(false)
       await removeNote({
-        id: editId as any,
+        id: id as any,
         pinHash: activePinHash ?? undefined,
       })
-      setSheetOpen(false)
     }
   }
 
