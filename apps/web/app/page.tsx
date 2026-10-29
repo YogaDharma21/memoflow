@@ -182,18 +182,29 @@ export default function Page() {
     setView(v)
   }, [])
 
-  // Arrow keys shift cursor, skipped while typing or viewer/PIN open.
+  const openNew = useCallback(() => {
+    setEditId(null)
+    setDraftBody("")
+    setDraftPhotos([])
+    setSheetOpen(true)
+  }, [])
+
+  // Arrow keys shift cursor and 'N' opens composer, skipped while typing or overlays open.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (viewer || pinOpen || sheetOpen || searchOpen) return
       const t = document.activeElement
-      if (t && /INPUT|TEXTAREA/.test(t.tagName)) return
+      if (t && (/INPUT|TEXTAREA/.test(t.tagName) || (t as HTMLElement).isContentEditable)) return
       if (e.key === "ArrowRight") shift(1)
       if (e.key === "ArrowLeft") shift(-1)
+      if ((e.key === "n" || e.key === "N") && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault()
+        openNew()
+      }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [shift, viewer, pinOpen, sheetOpen, searchOpen])
+  }, [shift, viewer, pinOpen, sheetOpen, searchOpen, openNew])
 
   // Search shortcuts: '/' or Cmd+K / Ctrl+K opens search dialog.
   useEffect(() => {
@@ -311,13 +322,6 @@ export default function Page() {
       important: !note.important,
       pinHash: activePinHash ?? undefined,
     })
-  }
-
-  const openNew = () => {
-    setEditId(null)
-    setDraftBody("")
-    setDraftPhotos([])
-    setSheetOpen(true)
   }
 
   const openEdit = async (note: Note) => {
@@ -658,15 +662,30 @@ export default function Page() {
       </div>
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent>
+        <SheetContent
+          onKeyDown={(e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+              e.preventDefault()
+              void saveNote()
+            }
+          }}
+        >
           <SheetTitle className="text-[13px] font-bold text-muted-foreground">
             {editId ? "Edit note" : "New note"}
           </SheetTitle>
           <textarea
+            autoFocus
             className="mt-3 min-h-24 w-full rounded-xl border border-border bg-card p-3 text-[15px] outline-none"
             placeholder="type a note"
             value={draftBody}
             onChange={(e) => setDraftBody(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                e.preventDefault()
+                e.stopPropagation()
+                void saveNote()
+              }
+            }}
           />
           <input
             ref={fileRef}
