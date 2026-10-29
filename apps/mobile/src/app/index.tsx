@@ -15,6 +15,7 @@ import { api } from '@workspace/convex/api';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { Colors, Spacing } from '@/constants/theme';
 import { hashPin } from '@/lib/pin';
+import { groupFlashbacksByYear } from '@/lib/flashbacks';
 import { DraftPhoto, Note, View as ViewMode } from '@/types';
 
 import { AuthView } from '@/components/auth-view';
@@ -85,8 +86,17 @@ export default function HomeScreen() {
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [viewer, setViewer] = useState<{ list: string[]; index: number } | null>(null);
+  const scrollRef = useRef<any>(null);
 
   const allNotes = useMemo(() => notes ?? [], [notes]);
+  const flashbackGroups = useMemo(
+    () => groupFlashbacksByYear(allNotes, cursor),
+    [allNotes, cursor]
+  );
+  const totalFlashbacks = useMemo(
+    () => flashbackGroups.reduce((acc, g) => acc + g.notes.length, 0),
+    [flashbackGroups]
+  );
 
   const shift = useCallback(
     (d: number) => {
@@ -361,6 +371,19 @@ export default function HomeScreen() {
                 color={searchOpen ? colors.primaryForeground : colors.text}
               />
             </TouchableOpacity>
+
+            {view === 'day' && totalFlashbacks > 0 && (
+              <TouchableOpacity
+                style={[
+                  styles.iconButton,
+                  { backgroundColor: colors.backgroundElement },
+                ]}
+                onPress={() => scrollRef.current?.scrollTo?.({ y: 0, animated: true })}
+                hitSlop={6}
+              >
+                <Feather name="clock" size={15} color={colors.text} />
+              </TouchableOpacity>
+            )}
           </View>
 
           <Text
@@ -420,6 +443,9 @@ export default function HomeScreen() {
               onOpen={handleOpenNote}
               onViewer={(list, i) => setViewer({ list, index: i })}
               unlocked={unlocked}
+              flashbackGroups={flashbackGroups}
+              onDrill={(d) => drill('day', d)}
+              scrollRef={scrollRef}
             />
           )}
           {view === 'month' && (

@@ -9,6 +9,7 @@ import {
   ArrowUp,
   ChevronLeft,
   ChevronRight,
+  History,
   ImagePlus,
   KeyRound,
   Lock,
@@ -26,6 +27,7 @@ import {
 } from "@workspace/ui/components/dialog"
 import { Sheet, SheetContent, SheetTitle } from "@workspace/ui/components/sheet"
 import { hashPin } from "@/lib/pin"
+import { FlashbackGroup, groupFlashbacksByYear } from "@/lib/flashbacks"
 
 type View = "day" | "month" | "year" | "important"
 
@@ -163,6 +165,15 @@ export default function Page() {
       .filter((n) => !n.isLocked && n.body.toLowerCase().includes(q))
       .sort((a, b) => b.createdAt - a.createdAt)
   }, [all, searchQuery])
+
+  const flashbackGroups = useMemo(
+    () => groupFlashbacksByYear(all, cursor),
+    [all, cursor]
+  )
+  const totalFlashbacks = useMemo(
+    () => flashbackGroups.reduce((acc, g) => acc + g.notes.length, 0),
+    [flashbackGroups]
+  )
 
   const shift = useCallback(
     (d: number) => {
@@ -515,6 +526,21 @@ export default function Page() {
             >
               <Search className="size-4" />
             </Button>
+            {view === "day" && totalFlashbacks > 0 && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  document
+                    .getElementById("flashbacks-section")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }}
+                aria-label="on this day flashbacks"
+                title={`On this day (${totalFlashbacks})`}
+              >
+                <History className="size-4" />
+              </Button>
+            )}
           </span>
           <span className="text-[13px] font-semibold text-muted-foreground">
             {view === "day" ? (
@@ -604,6 +630,8 @@ export default function Page() {
                 onOpen={openEdit}
                 onViewer={(l, i) => setViewer({ list: l, index: i })}
                 unlocked={unlocked}
+                flashbackGroups={flashbackGroups}
+                onDrill={(d) => drill("day", d)}
               />
             )}
             {view === "month" && (
@@ -1059,6 +1087,8 @@ function DayRail({
   onOpen,
   onViewer,
   unlocked,
+  flashbackGroups = [],
+  onDrill,
 }: {
   notes: Note[]
   cursor: Date
@@ -1066,15 +1096,85 @@ function DayRail({
   onOpen: (n: Note) => void
   onViewer: (list: string[], i: number) => void
   unlocked: boolean
+  flashbackGroups?: FlashbackGroup<Note>[]
+  onDrill?: (d: Date) => void
 }) {
   const nowH = new Date().getHours()
   const isToday = sameDay(cursor, new Date())
   const nowRef = useRef<HTMLDivElement>(null)
+  const totalFlashbacks = flashbackGroups.reduce(
+    (acc, g) => acc + g.notes.length,
+    0
+  )
   useEffect(() => {
     nowRef.current?.scrollIntoView({ block: "center" })
   }, [cursor])
   return (
-    <div className="relative ml-13 border-l border-border">
+    <div>
+      {flashbackGroups.length > 0 && (
+        <div
+          id="flashbacks-section"
+          className="mb-6 scroll-mt-28 rounded-[24px] border border-border bg-card p-4 sm:p-5 shadow-[0_28px_56px_-40px_rgba(0,0,0,0.9)]"
+        >
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="rounded-[10px] bg-surface-inset p-1.5 text-muted-foreground">
+                <History className="size-4" />
+              </div>
+              <h3 className="text-[15px] font-medium tracking-[-0.015em] text-foreground">
+                On this day
+              </h3>
+            </div>
+            <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
+              {totalFlashbacks} {totalFlashbacks === 1 ? "memory" : "memories"}
+            </span>
+          </div>
+
+          <div className="space-y-4">
+            {flashbackGroups.map((group) => (
+              <div key={group.year} className="space-y-2">
+                <div className="flex items-center justify-between border-b border-border pb-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    {group.year} · {group.yearsAgo}{" "}
+                    {group.yearsAgo === 1 ? "year" : "years"} ago
+                  </span>
+                  {onDrill && (
+                    <button
+                      type="button"
+                      className="cursor-pointer text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                      onClick={() =>
+                        onDrill(
+                          new Date(
+                            group.year,
+                            cursor.getMonth(),
+                            cursor.getDate()
+                          )
+                        )
+                      }
+                    >
+                      Jump to day
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  {group.notes.map((n) => (
+                    <NoteCard
+                      key={n._id}
+                      note={n}
+                      onStar={onStar}
+                      onOpen={onOpen}
+                      onViewer={onViewer}
+                      unlocked={unlocked}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="relative ml-13 border-l border-border">
       {Array.from({ length: 24 }, (_, h) => {
         const list = notes.filter((n) => new Date(n.createdAt).getHours() === h)
         const isNow = isToday && h === nowH
@@ -1109,6 +1209,7 @@ function DayRail({
           </div>
         )
       })}
+      </div>
     </div>
   )
 }
