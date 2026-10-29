@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Card } from "@workspace/ui/components/card"
+import { Markdown, toggleTaskInMarkdown } from "@workspace/ui/components/markdown"
 import {
   Dialog,
   DialogContent,
@@ -436,6 +437,24 @@ export default function Page() {
     }
   }
 
+  const handleToggleTask = useCallback(
+    async (note: Note, taskIndex: number) => {
+      const nextBody = toggleTaskInMarkdown(note.body, taskIndex)
+      if (nextBody === note.body) return
+      try {
+        await updateNote({
+          id: note._id as any,
+          body: nextBody,
+          photoIds: (note.photoIds ?? []) as any,
+          pinHash: activePinHash ?? undefined,
+        })
+      } catch (err) {
+        console.error("Failed to toggle task", err)
+      }
+    },
+    [updateNote, activePinHash]
+  )
+
   // ponytail: avoids flashing app skeleton to unauthenticated visitors before Clerk loads.
   if (!isLoaded) {
     if (hasClerkSession()) return <PageSkeleton />
@@ -604,6 +623,7 @@ export default function Page() {
                 onOpen={openEdit}
                 onViewer={(l, i) => setViewer({ list: l, index: i })}
                 unlocked={unlocked}
+                onToggleTask={handleToggleTask}
               />
             )}
             {view === "month" && (
@@ -629,6 +649,7 @@ export default function Page() {
                 onOpen={openEdit}
                 onViewer={(l, i) => setViewer({ list: l, index: i })}
                 unlocked={unlocked}
+                onToggleTask={handleToggleTask}
               />
             )}
           </>
@@ -979,28 +1000,37 @@ function NoteCard({
   onOpen,
   onViewer,
   unlocked,
+  onToggleTask,
 }: {
   note: Note
   onStar: (n: Note) => void
   onOpen: (n: Note) => void
   onViewer: (list: string[], i: number) => void
   unlocked: boolean
+  onToggleTask?: (note: Note, taskIndex: number) => void
 }) {
   const isLocked = Boolean(note.isLocked ?? (note.important && !unlocked))
   return (
     <Card className="my-1.5 cursor-pointer p-3" onClick={() => onOpen(note)}>
       <div className="flex items-start justify-between gap-2">
-        <span className="min-w-0 text-sm">
+        <div className="min-w-0 flex-1 text-sm">
           {isLocked ? (
             <span className="flex items-center gap-1 italic text-muted-foreground">
               <Lock className="inline size-3" /> Locked note
             </span>
           ) : note.body.trim() ? (
-            note.body
+            <Markdown
+              content={note.body}
+              onToggleTask={
+                onToggleTask
+                  ? (taskIndex) => onToggleTask(note, taskIndex)
+                  : undefined
+              }
+            />
           ) : (
-            "photo"
+            <span className="italic text-muted-foreground">photo</span>
           )}
-        </span>
+        </div>
         <button
           className={`flex-none pl-1 text-sm ${note.important ? "text-amber-mineral opacity-100" : "text-muted-foreground opacity-45"}`}
           onClick={(e) => {
@@ -1059,6 +1089,7 @@ function DayRail({
   onOpen,
   onViewer,
   unlocked,
+  onToggleTask,
 }: {
   notes: Note[]
   cursor: Date
@@ -1066,6 +1097,7 @@ function DayRail({
   onOpen: (n: Note) => void
   onViewer: (list: string[], i: number) => void
   unlocked: boolean
+  onToggleTask?: (note: Note, taskIndex: number) => void
 }) {
   const nowH = new Date().getHours()
   const isToday = sameDay(cursor, new Date())
@@ -1104,6 +1136,7 @@ function DayRail({
                 onOpen={onOpen}
                 onViewer={onViewer}
                 unlocked={unlocked}
+                onToggleTask={onToggleTask}
               />
             ))}
           </div>
@@ -1301,12 +1334,14 @@ function ImportantView({
   onOpen,
   onViewer,
   unlocked,
+  onToggleTask,
 }: {
   notes: Note[]
   onStar: (n: Note) => void
   onOpen: (n: Note) => void
   onViewer: (list: string[], i: number) => void
   unlocked: boolean
+  onToggleTask?: (note: Note, taskIndex: number) => void
 }) {
   if (!notes.length)
     return (
@@ -1324,6 +1359,7 @@ function ImportantView({
           onOpen={onOpen}
           onViewer={onViewer}
           unlocked={unlocked}
+          onToggleTask={onToggleTask}
         />
       ))}
     </div>
