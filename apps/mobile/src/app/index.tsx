@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   useColorScheme,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useMutation, useQuery } from 'convex/react';
@@ -85,8 +86,34 @@ export default function HomeScreen() {
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [viewer, setViewer] = useState<{ list: string[]; index: number } | null>(null);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
   const allNotes = useMemo(() => notes ?? [], [notes]);
+
+  const activeTags = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const note of allNotes) {
+      if (note.isLocked || (note.important && !unlocked)) continue;
+      const tags = note.tags ?? [];
+      for (const tag of tags) {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1);
+      }
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([tag]) => tag);
+  }, [allNotes, unlocked]);
+
+  useEffect(() => {
+    if (selectedTag && !activeTags.includes(selectedTag)) {
+      setSelectedTag(null);
+    }
+  }, [activeTags, selectedTag]);
+
+  const visibleNotes = useMemo(() => {
+    if (!selectedTag) return allNotes;
+    return allNotes.filter((n) => !n.isLocked && n.tags?.includes(selectedTag));
+  }, [allNotes, selectedTag]);
 
   const shift = useCallback(
     (d: number) => {
@@ -261,11 +288,11 @@ export default function HomeScreen() {
     return <AuthView />;
   }
 
-  const dayNotes = allNotes
+  const dayNotes = visibleNotes
     .filter((n) => sameDay(new Date(n.createdAt), cursor))
     .sort((a, b) => a.createdAt - b.createdAt);
 
-  const importantNotes = allNotes
+  const importantNotes = visibleNotes
     .filter((n) => n.important)
     .sort((a, b) => b.createdAt - a.createdAt);
 
@@ -403,6 +430,68 @@ export default function HomeScreen() {
             )}
           </View>
         </View>
+
+        {activeTags.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tagBar}
+          >
+            <TouchableOpacity
+              style={[
+                styles.tagPill,
+                {
+                  backgroundColor:
+                    selectedTag === null ? colors.primary : colors.backgroundElement,
+                  borderColor: colors.border,
+                },
+              ]}
+              onPress={() => setSelectedTag(null)}
+            >
+              <Text
+                style={[
+                  styles.tagText,
+                  {
+                    color:
+                      selectedTag === null
+                        ? colors.primaryForeground
+                        : colors.textSecondary,
+                  },
+                ]}
+              >
+                All
+              </Text>
+            </TouchableOpacity>
+            {activeTags.map((tag) => {
+              const active = selectedTag === tag;
+              return (
+                <TouchableOpacity
+                  key={tag}
+                  style={[
+                    styles.tagPill,
+                    {
+                      backgroundColor: active ? colors.primary : colors.backgroundElement,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                  onPress={() => setSelectedTag(active ? null : tag)}
+                >
+                  <Text
+                    style={[
+                      styles.tagText,
+                      {
+                        color: active ? colors.primaryForeground : colors.textSecondary,
+                        fontWeight: active ? '600' : '500',
+                      },
+                    ]}
+                  >
+                    {tag}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
       </View>
 
       {/* Main Content View */}
@@ -420,12 +509,13 @@ export default function HomeScreen() {
               onOpen={handleOpenNote}
               onViewer={(list, i) => setViewer({ list, index: i })}
               unlocked={unlocked}
+              onSelectTag={(t) => setSelectedTag(t)}
             />
           )}
           {view === 'month' && (
             <MonthView
               cursor={cursor}
-              notes={allNotes}
+              notes={visibleNotes}
               onDrill={(d) => drill('day', d)}
               unlocked={unlocked}
             />
@@ -433,7 +523,7 @@ export default function HomeScreen() {
           {view === 'year' && (
             <YearView
               cursor={cursor}
-              notes={allNotes}
+              notes={visibleNotes}
               onDrill={(d) => drill('month', d)}
               unlocked={unlocked}
             />
@@ -445,6 +535,7 @@ export default function HomeScreen() {
               onOpen={handleOpenNote}
               onViewer={(list, i) => setViewer({ list, index: i })}
               unlocked={unlocked}
+              onSelectTag={(t) => setSelectedTag(t)}
             />
           )}
         </View>
@@ -588,6 +679,21 @@ const styles = StyleSheet.create({
   dateHeading: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  tagBar: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingTop: Spacing.two,
+    paddingBottom: 2,
+  },
+  tagPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 9999,
+    borderWidth: 1,
+  },
+  tagText: {
+    fontSize: 12,
   },
   content: {
     flex: 1,

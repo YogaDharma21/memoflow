@@ -17,9 +17,10 @@ type Props = {
   onOpen: (n: Note) => void;
   onViewer: (list: string[], i: number) => void;
   unlocked?: boolean;
+  onSelectTag?: (tag: string) => void;
 };
 
-export function NoteCard({ note, onStar, onOpen, onViewer, unlocked }: Props) {
+export function NoteCard({ note, onStar, onOpen, onViewer, unlocked, onSelectTag }: Props) {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
 
@@ -80,6 +81,29 @@ export function NoteCard({ note, onStar, onOpen, onViewer, unlocked }: Props) {
           </TouchableOpacity>
         ))}
 
+      {!isLocked && note.tags && note.tags.length > 0 && (
+        <View style={styles.tagRow}>
+          {note.tags.map((t) => (
+            <TouchableOpacity
+              key={t}
+              hitSlop={4}
+              onPress={() => onSelectTag?.(t)}
+              style={[
+                styles.tagPill,
+                {
+                  backgroundColor: colors.backgroundElement,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <Text style={[styles.tagText, { color: colors.textSecondary }]}>
+                {t}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
       <Text style={[styles.meta, { color: colors.textSecondary }]}>
         {dateStr} · {timeStr}
         {!isLocked && note.photoUrls.length > 0
@@ -128,5 +152,22 @@ const styles = StyleSheet.create({
   meta: {
     marginTop: Spacing.one,
     fontSize: 11,
+  },
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: Spacing.two,
+    marginBottom: Spacing.half,
+  },
+  tagPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 9999,
+    borderWidth: 1,
+  },
+  tagText: {
+    fontSize: 11,
+    fontWeight: '500',
   },
 });
