@@ -197,7 +197,7 @@ export default function Page() {
       if (t && (/INPUT|TEXTAREA/.test(t.tagName) || (t as HTMLElement).isContentEditable)) return
       if (e.key === "ArrowRight") shift(1)
       if (e.key === "ArrowLeft") shift(-1)
-      if ((e.key === "n" || e.key === "N") && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      if (e.key.toLowerCase() === "n" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         e.preventDefault()
         openNew()
       }
