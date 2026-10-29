@@ -165,6 +165,24 @@ async function runTests() {
     await notesApi.remove._handler(ctx, { id: "n1", pinHash: "valid_hash" });
     const removed = await ctx.db.get("n1");
     assert.equal(removed, null, "Removing locked note with valid PIN succeeds");
+
+    // Toggle star on locked note without PIN throws
+    const starNotes = [
+      { _id: "s1", important: true, body: "starred secret", photoIds: [] },
+    ];
+    const starCtx = createMockCtx({ pinHash: "valid_hash", notes: starNotes });
+    await assert.rejects(
+      async () => {
+        await notesApi.setImportant._handler(starCtx, { id: "s1", important: false });
+      },
+      /PIN required/,
+      "Toggling star on locked note without PIN must reject"
+    );
+
+    // Toggle star on locked note with valid PIN succeeds
+    await notesApi.setImportant._handler(starCtx, { id: "s1", important: false, pinHash: "valid_hash" });
+    const unstarred = await starCtx.db.get("s1");
+    assert.equal(unstarred.important, false, "Toggling star with valid PIN succeeds");
   }
 
   console.log("All PIN protection verification tests PASSED!");

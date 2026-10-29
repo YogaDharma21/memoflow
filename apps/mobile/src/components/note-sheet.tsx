@@ -24,8 +24,12 @@ type Props = {
   editNote: Note | null;
   cursor: Date;
   onClose: () => void;
-  onSave: (body: string, draftPhotos: DraftPhoto[], editId: string | null) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
+  onSave: (
+    body: string,
+    draftPhotos: DraftPhoto[],
+    editId: string | null
+  ) => Promise<boolean | void>;
+  onDelete: (id: string) => Promise<boolean | void>;
 };
 
 export function NoteSheet({
@@ -84,8 +88,10 @@ export function NoteSheet({
     if ((!trimmed && !draftPhotos.length) || saving) return;
     setSaving(true);
     try {
-      await onSave(trimmed, draftPhotos, editNote ? editNote._id : null);
-      onClose();
+      const ok = await onSave(trimmed, draftPhotos, editNote ? editNote._id : null);
+      if (ok !== false) {
+        onClose();
+      }
     } catch (err: any) {
       Alert.alert('Error', err?.message || 'Could not save note');
     } finally {
@@ -101,8 +107,14 @@ export function NoteSheet({
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          await onDelete(editNote._id);
-          onClose();
+          try {
+            const ok = await onDelete(editNote._id);
+            if (ok !== false) {
+              onClose();
+            }
+          } catch (err: any) {
+            Alert.alert('Error', err?.message || 'Could not delete note');
+          }
         },
       },
     ]);
