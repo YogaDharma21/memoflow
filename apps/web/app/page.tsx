@@ -26,6 +26,7 @@ import {
 } from "@workspace/ui/components/dialog"
 import { Sheet, SheetContent, SheetTitle } from "@workspace/ui/components/sheet"
 import { hashPin } from "@/lib/pin"
+import { extractImageFiles, filterImageFiles } from "@/lib/media"
 
 type View = "day" | "month" | "year" | "important"
 
@@ -150,6 +151,8 @@ export default function Page() {
   const fileRef = useRef<HTMLInputElement>(null)
   const replaceIdx = useRef(-1)
   const touchX = useRef(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragCount = useRef(0)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -214,6 +217,90 @@ export default function Page() {
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [viewer, pinOpen, sheetOpen, searchOpen])
+
+  const addFiles = useCallback((files: File[]) => {
+    if (!files.length) return
+    const made: DraftPhoto[] = files.map((file) => ({
+      kind: "new" as const,
+      file,
+      url: URL.createObjectURL(file),
+    }))
+    setSheetOpen((isOpen) => {
+      if (!isOpen) {
+        setEditId(null)
+        setDraftBody("")
+        setDraftPhotos(made)
+        return true
+      }
+      setDraftPhotos((prev) => prev.concat(made))
+      return true
+    })
+  }, [])
+
+  // Global clipboard image paste (Ctrl+V / Cmd+V)
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      if (viewer || pinOpen) return
+      const images = extractImageFiles(e.clipboardData?.items)
+      if (images.length) {
+        e.preventDefault()
+        addFiles(images)
+      }
+    }
+    window.addEventListener("paste", onPaste)
+    return () => window.removeEventListener("paste", onPaste)
+  }, [viewer, pinOpen, addFiles])
+
+  // Global drag-drop image handler
+  useEffect(() => {
+    const onDragEnter = (e: DragEvent) => {
+      if (viewer || pinOpen) return
+      if (e.dataTransfer?.types?.includes("Files")) {
+        dragCount.current++
+        if (dragCount.current === 1) setIsDragging(true)
+      }
+    }
+    const onDragLeave = (e: DragEvent) => {
+      dragCount.current--
+      if (dragCount.current <= 0) {
+        dragCount.current = 0
+        setIsDragging(false)
+      }
+    }
+    const onDragOver = (e: DragEvent) => {
+      if (e.dataTransfer?.types?.includes("Files")) {
+        e.preventDefault()
+        e.dataTransfer.dropEffect = "copy"
+      }
+    }
+    const onDrop = (e: DragEvent) => {
+      dragCount.current = 0
+      setIsDragging(false)
+      if (viewer || pinOpen) return
+      const files = filterImageFiles(e.dataTransfer?.files)
+      if (files.length) {
+        e.preventDefault()
+        addFiles(files)
+      }
+    }
+    const onDragEnd = () => {
+      dragCount.current = 0
+      setIsDragging(false)
+    }
+
+    window.addEventListener("dragenter", onDragEnter)
+    window.addEventListener("dragleave", onDragLeave)
+    window.addEventListener("dragover", onDragOver)
+    window.addEventListener("drop", onDrop)
+    window.addEventListener("dragend", onDragEnd)
+    return () => {
+      window.removeEventListener("dragenter", onDragEnter)
+      window.removeEventListener("dragleave", onDragLeave)
+      window.removeEventListener("dragover", onDragOver)
+      window.removeEventListener("drop", onDrop)
+      window.removeEventListener("dragend", onDragEnd)
+    }
+  }, [viewer, pinOpen, addFiles])
 
   useEffect(() => {
     if (searchOpen) {
@@ -583,7 +670,7 @@ export default function Page() {
       </header>
 
       <main
-        className="px-4 py-2 sm:px-6"
+        className="relative px-4 py-2 sm:px-6"
         onTouchStart={(e) => {
           touchX.current = e.changedTouches[0]?.clientX ?? 0
         }}
@@ -592,6 +679,21 @@ export default function Page() {
           if (Math.abs(dx) > 48 && view !== "important") shift(dx < 0 ? 1 : -1)
         }}
       >
+        {isDragging && (
+          <div className="pointer-events-none fixed inset-4 z-40 flex items-center justify-center rounded-2xl border-2 border-dashed border-primary/40 bg-background/85 sm:inset-8">
+            <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-6 py-4 shadow-2xl">
+              <ImagePlus className="size-8 text-primary" />
+              <p className="text-[13px] font-semibold text-foreground">
+                Drop images to attach
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {sheetOpen
+                  ? "Adds photos to current note"
+                  : `Adds photos to ${view === "day" ? cursor.toDateString() : "new note"}`}
+              </p>
+            </div>
+          </div>
+        )}
         {notes === undefined ? (
           <TimelineSkeleton />
         ) : (
