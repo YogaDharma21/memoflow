@@ -15,6 +15,7 @@ import { api } from '@workspace/convex/api';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { Colors, Spacing } from '@/constants/theme';
 import { hashPin } from '@/lib/pin';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { DraftPhoto, Note, View as ViewMode } from '@/types';
 
 import { AuthView } from '@/components/auth-view';
@@ -99,6 +100,31 @@ export default function HomeScreen() {
       });
     },
     [view]
+  );
+
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .enabled(view === 'day' || view === 'month')
+        .activeOffsetX([-20, 20])
+        .failOffsetY([-15, 15])
+        .runOnJS(true)
+        .onEnd((e) => {
+          const SWIPE_THRESHOLD = 50;
+          const VELOCITY_THRESHOLD = 500;
+          if (
+            e.translationX < -SWIPE_THRESHOLD ||
+            (e.translationX < -20 && e.velocityX < -VELOCITY_THRESHOLD)
+          ) {
+            shift(1);
+          } else if (
+            e.translationX > SWIPE_THRESHOLD ||
+            (e.translationX > 20 && e.velocityX > VELOCITY_THRESHOLD)
+          ) {
+            shift(-1);
+          }
+        }),
+    [view, shift]
   );
 
   const drill = useCallback((v: ViewMode, date?: Date) => {
@@ -411,43 +437,45 @@ export default function HomeScreen() {
           <ActivityIndicator size="small" color={colors.primary} />
         </View>
       ) : (
-        <View style={styles.content}>
-          {view === 'day' && (
-            <DayRail
-              notes={dayNotes}
-              cursor={cursor}
-              onStar={toggleStar}
-              onOpen={handleOpenNote}
-              onViewer={(list, i) => setViewer({ list, index: i })}
-              unlocked={unlocked}
-            />
-          )}
-          {view === 'month' && (
-            <MonthView
-              cursor={cursor}
-              notes={allNotes}
-              onDrill={(d) => drill('day', d)}
-              unlocked={unlocked}
-            />
-          )}
-          {view === 'year' && (
-            <YearView
-              cursor={cursor}
-              notes={allNotes}
-              onDrill={(d) => drill('month', d)}
-              unlocked={unlocked}
-            />
-          )}
-          {view === 'important' && (
-            <ImportantView
-              notes={importantNotes}
-              onStar={toggleStar}
-              onOpen={handleOpenNote}
-              onViewer={(list, i) => setViewer({ list, index: i })}
-              unlocked={unlocked}
-            />
-          )}
-        </View>
+        <GestureDetector gesture={panGesture}>
+          <View style={styles.content}>
+            {view === 'day' && (
+              <DayRail
+                notes={dayNotes}
+                cursor={cursor}
+                onStar={toggleStar}
+                onOpen={handleOpenNote}
+                onViewer={(list, i) => setViewer({ list, index: i })}
+                unlocked={unlocked}
+              />
+            )}
+            {view === 'month' && (
+              <MonthView
+                cursor={cursor}
+                notes={allNotes}
+                onDrill={(d) => drill('day', d)}
+                unlocked={unlocked}
+              />
+            )}
+            {view === 'year' && (
+              <YearView
+                cursor={cursor}
+                notes={allNotes}
+                onDrill={(d) => drill('month', d)}
+                unlocked={unlocked}
+              />
+            )}
+            {view === 'important' && (
+              <ImportantView
+                notes={importantNotes}
+                onStar={toggleStar}
+                onOpen={handleOpenNote}
+                onViewer={(list, i) => setViewer({ list, index: i })}
+                unlocked={unlocked}
+              />
+            )}
+          </View>
+        </GestureDetector>
       )}
 
       {/* Back to today floating button */}
