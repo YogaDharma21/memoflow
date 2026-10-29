@@ -149,6 +149,7 @@ export default function Page() {
   } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const replaceIdx = useRef(-1)
+  const blobUrlsRef = useRef<Set<string>>(new Set())
   const touchX = useRef(0)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -313,7 +314,20 @@ export default function Page() {
     })
   }
 
+  const revokeBlobUrl = useCallback((url: string) => {
+    if (blobUrlsRef.current.has(url)) {
+      URL.revokeObjectURL(url)
+      blobUrlsRef.current.delete(url)
+    }
+  }, [])
+
+  const revokeAllBlobs = useCallback(() => {
+    blobUrlsRef.current.forEach((url) => URL.revokeObjectURL(url))
+    blobUrlsRef.current.clear()
+  }, [])
+
   const openNew = () => {
+    revokeAllBlobs()
     setEditId(null)
     setDraftBody("")
     setDraftPhotos([])
@@ -327,6 +341,7 @@ export default function Page() {
       const fresh = all.find((n) => n._id === note._id && !n.isLocked)
       if (fresh) note = fresh
     }
+    revokeAllBlobs()
     setEditId(note._id)
     setDraftBody(note.body)
     setDraftPhotos(
@@ -349,13 +364,25 @@ export default function Page() {
 
   const onFiles = (files: FileList | null) => {
     if (!files?.length) return
-    const made: DraftPhoto[] = Array.from(files).map((file) => ({
-      kind: "new" as const,
-      file,
-      url: URL.createObjectURL(file),
-    }))
+    const made: DraftPhoto[] = Array.from(files).map((file) => {
+      const url = URL.createObjectURL(file)
+      blobUrlsRef.current.add(url)
+      return {
+        kind: "new" as const,
+        file,
+        url,
+      }
+    })
     setDraftPhotos((prev) => {
       if (replaceIdx.current >= 0 && made[0]) {
+        const target = prev[replaceIdx.current]
+        if (target?.kind === "new") {
+          revokeBlobUrl(target.url)
+        }
+        for (let i = 1; i < made.length; i++) {
+          const extra = made[i]
+          if (extra) revokeBlobUrl(extra.url)
+        }
         const next = prev.slice()
         next[replaceIdx.current] = made[0]
         return next
@@ -364,6 +391,16 @@ export default function Page() {
     })
     replaceIdx.current = -1
     if (fileRef.current) fileRef.current.value = ""
+  }
+
+  const removeDraftPhoto = (index: number) => {
+    setDraftPhotos((prev) => {
+      const target = prev[index]
+      if (target?.kind === "new") {
+        revokeBlobUrl(target.url)
+      }
+      return prev.filter((_, j) => j !== index)
+    })
   }
 
   const uploadDrafts = async (): Promise<string[]> => {
@@ -400,6 +437,19 @@ export default function Page() {
       )
     }
   }, [all, editId, sheetOpen, draftBody, draftPhotos.length])
+
+  useEffect(() => {
+    if (!sheetOpen) {
+      revokeAllBlobs()
+      setDraftPhotos((prev) => (prev.length ? [] : prev))
+    }
+  }, [sheetOpen, revokeAllBlobs])
+
+  useEffect(() => {
+    return () => {
+      revokeAllBlobs()
+    }
+  }, [revokeAllBlobs])
 
   const saveNote = async () => {
     const body = draftBody.trim()
@@ -691,9 +741,7 @@ export default function Page() {
                 />
                 <button
                   className="absolute top-0.5 right-0.5 flex size-5 items-center justify-center rounded-full bg-black/65 text-white"
-                  onClick={() =>
-                    setDraftPhotos((prev) => prev.filter((_, j) => j !== i))
-                  }
+                  onClick={() => removeDraftPhoto(i)}
                   aria-label="remove photo"
                 >
                   <X className="size-3" />
