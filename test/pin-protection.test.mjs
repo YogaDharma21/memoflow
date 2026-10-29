@@ -47,7 +47,7 @@ function createMockCtx({ userId = "user_123", pinHash = null, notes = [] } = {})
       }),
       get: async (id) => store.notes.find((n) => n._id === id) || null,
       patch: async (id, fields) => {
-        const item = store.notes.find((n) => n._id === id);
+        const item = store.notes.find((n) => n._id === id) || store.userSettings.find((s) => s._id === id);
         if (item) Object.assign(item, fields);
       },
       delete: async (id) => {
@@ -86,6 +86,38 @@ async function runTests() {
 
     const bad = await settingsApi.verifyPin._handler(ctx, { pinHash: "wrong_hash" });
     assert.equal(bad, false, "verifyPin returns false on wrong hash");
+  }
+
+  // 2b. removePin requires valid pinHash when PIN is configured
+  {
+    const ctx = createMockCtx({ pinHash: "secret_pin" });
+
+    // Calling removePin without pinHash must reject
+    await assert.rejects(
+      async () => {
+        await settingsApi.removePin._handler(ctx, {});
+      },
+      /PIN required/,
+      "removePin without pinHash must reject when PIN is set"
+    );
+
+    // Calling removePin with wrong pinHash must reject
+    await assert.rejects(
+      async () => {
+        await settingsApi.removePin._handler(ctx, { pinHash: "wrong_pin" });
+      },
+      /PIN required/,
+      "removePin with wrong pinHash must reject"
+    );
+
+    // Calling removePin with correct pinHash succeeds and clears PIN
+    await settingsApi.removePin._handler(ctx, { pinHash: "secret_pin" });
+    const status = await settingsApi.getMe._handler(ctx, {});
+    assert.equal(status.hasPin, false, "removePin clears user PIN");
+
+    // Calling removePin when no PIN is set succeeds
+    const ctxNoPin = createMockCtx({ pinHash: null });
+    await settingsApi.removePin._handler(ctxNoPin, {});
   }
 
   // 3. Redaction in notes:listMine
