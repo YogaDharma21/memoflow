@@ -113,7 +113,11 @@ const highlightMatch = (text: string, query: string): ReactNode => {
   if (idx === -1) return text
 
   const start = idx > 60 ? Math.max(0, idx - 30) : 0
-  const snippet = (start > 0 ? "... " : "") + text.slice(start)
+  const end = Math.min(text.length, Math.max(start + 140, idx + q.length + 30))
+  const snippet =
+    (start > 0 ? "... " : "") +
+    text.slice(start, end) +
+    (end < text.length ? "..." : "")
 
   const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
   const parts = snippet.split(new RegExp(`(${escaped})`, "gi")).filter(Boolean)
