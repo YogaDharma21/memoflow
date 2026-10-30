@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { useSSO } from '@clerk/expo';
 import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
 import { FontAwesome } from '@expo/vector-icons';
 import { Colors, Spacing } from '@/constants/theme';
 
@@ -34,12 +33,8 @@ export function AuthView() {
     setLoading(true);
     setError('');
     try {
-      const redirectUrl = AuthSession.makeRedirectUri({
-        path: 'sso-callback',
-      });
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy: 'oauth_google',
-        redirectUrl,
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });

@@ -1,33 +1,9 @@
 import React, { ReactNode, useMemo } from 'react';
-import { StyleSheet, Text, View, Platform } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { ClerkProvider, ClerkLoaded, useAuth } from '@clerk/expo';
-import * as SecureStore from 'expo-secure-store';
+import { tokenCache } from '@clerk/expo/token-cache';
 import { ConvexProviderWithClerk } from 'convex/react-clerk';
 import { ConvexReactClient } from 'convex/react';
-
-const tokenCache = {
-  async getToken(key: string) {
-    try {
-      if (Platform.OS === 'web') {
-        return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
-      }
-      return await SecureStore.getItemAsync(key);
-    } catch {
-      return null;
-    }
-  },
-  async saveToken(key: string, value: string) {
-    try {
-      if (Platform.OS === 'web') {
-        if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
-        return;
-      }
-      await SecureStore.setItemAsync(key, value);
-    } catch {
-      return;
-    }
-  },
-};
 
 export function Providers({ children }: { children: ReactNode }) {
   const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
