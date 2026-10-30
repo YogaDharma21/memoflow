@@ -8,7 +8,7 @@ import {
   Platform,
   useColorScheme,
 } from 'react-native';
-import { useSSO } from '@clerk/clerk-expo';
+import { useSSO } from '@clerk/expo';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import { FontAwesome } from '@expo/vector-icons';

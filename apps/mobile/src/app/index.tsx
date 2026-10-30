@@ -10,7 +10,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
-import { useAuth, useUser } from '@clerk/clerk-expo';
+import { useAuth, useUser } from '@clerk/expo';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '@workspace/convex/api';
 import { Feather, FontAwesome } from '@expo/vector-icons';

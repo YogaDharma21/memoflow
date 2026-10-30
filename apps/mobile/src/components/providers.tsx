@@ -1,6 +1,6 @@
 import React, { ReactNode, useMemo } from 'react';
 import { StyleSheet, Text, View, Platform } from 'react-native';
-import { ClerkProvider, ClerkLoaded, useAuth } from '@clerk/clerk-expo';
+import { ClerkProvider, ClerkLoaded, useAuth } from '@clerk/expo';
 import * as SecureStore from 'expo-secure-store';
 import { ConvexProviderWithClerk } from 'convex/react-clerk';
 import { ConvexReactClient } from 'convex/react';
