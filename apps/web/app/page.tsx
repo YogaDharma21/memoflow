@@ -1,7 +1,7 @@
 "use client"
 import { LandingPage } from "@/components/landing-page"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { useMutation, useQuery } from "convex/react"
 import { api } from "@workspace/convex/api"
 import { useAuth, SignInButton, UserButton } from "@clerk/nextjs"
@@ -104,6 +104,36 @@ const hasClerkSession = () => {
     /(?:^|;\s*)(?:__session|__client_uat|__clerk_db_jwt)\s*=\s*([^;]+)/.test(
       document.cookie
     ) && !/(?:^|;\s*)__client_uat\s*=\s*0(?:;|$)/.test(document.cookie)
+  )
+}
+
+const highlightMatch = (text: string, query: string): ReactNode => {
+  const q = query.trim()
+  if (!q || !text) return text
+  const idx = text.toLowerCase().indexOf(q.toLowerCase())
+  if (idx === -1) return text
+
+  const start = idx > 60 ? Math.max(0, idx - 30) : 0
+  const end = Math.min(text.length, Math.max(start + 140, idx + q.length + 30))
+  const snippet =
+    (start > 0 ? "... " : "") +
+    text.slice(start, end) +
+    (end < text.length ? "..." : "")
+
+  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const parts = snippet.split(new RegExp(`(${escaped})`, "gi")).filter(Boolean)
+
+  return parts.map((part, i) =>
+    part.toLowerCase() === q.toLowerCase() ? (
+      <mark
+        key={i}
+        className="rounded-[2px] bg-amber-mineral/15 px-0.5 font-medium text-amber-mineral"
+      >
+        {part}
+      </mark>
+    ) : (
+      part
+    )
   )
 }
 
@@ -1079,12 +1109,12 @@ export default function Page() {
                           <span className="flex items-center gap-1 text-muted-foreground italic">
                             <Lock className="inline size-3" /> Locked note
                           </span>
+                        ) : note.body ? (
+                          highlightMatch(note.body, searchQuery)
                         ) : (
-                          note.body || (
-                            <span className="text-muted-foreground italic">
-                              Photo note
-                            </span>
-                          )
+                          <span className="text-muted-foreground italic">
+                            Photo note
+                          </span>
                         )}
                       </p>
                     </div>
