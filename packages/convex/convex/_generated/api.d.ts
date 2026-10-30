@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as exportModule from "../export.js";
 import type * as notes from "../notes.js";
 import type * as userSettings from "../userSettings.js";
 
@@ -18,6 +19,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  export: typeof exportModule;
   notes: typeof notes;
   userSettings: typeof userSettings;
 }>;

@@ -12,3 +12,6 @@ allowBuilds:
   utf-8-validate: false
   browser-tabs-lock: false
   core-js: false
+
+patchedDependencies:
+  '@expo/cli': patches/@expo__cli.patch

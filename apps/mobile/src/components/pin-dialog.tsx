@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Modal,
   StyleSheet,
@@ -8,27 +8,110 @@ import {
   View,
   useColorScheme,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing } from '@/constants/theme';
+import {
+  checkBiometrics,
+  getCachedPinHash,
+  promptBiometricUnlock,
+  type BiometryType,
+} from '@/lib/biometrics';
 
 type Props = {
   visible: boolean;
   mode: 'set' | 'check';
   error: string;
+  userId?: string;
   onCancel: () => void;
   onSubmit: (pin: string) => void;
+  onBiometricSuccess?: (cachedHash: string) => void;
 };
 
-export function PinDialog({ visible, mode, error, onCancel, onSubmit }: Props) {
+export function PinDialog({
+  visible,
+  mode,
+  error,
+  userId,
+  onCancel,
+  onSubmit,
+  onBiometricSuccess,
+}: Props) {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
 
   const [pin, setPin] = useState('');
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometryType, setBiometryType] = useState<BiometryType>('none');
+  const [biometricPrompting, setBiometricPrompting] = useState(false);
+  const autoTriggered = useRef(false);
+
+  const triggerBiometric = useCallback(async () => {
+    if (biometricPrompting || !userId || !onBiometricSuccess) return;
+    setBiometricPrompting(true);
+    try {
+      const cachedHash = await getCachedPinHash(userId);
+      if (!cachedHash) {
+        setBiometricAvailable(false);
+        return;
+      }
+      const ok = await promptBiometricUnlock();
+      if (ok) {
+        onBiometricSuccess(cachedHash);
+      }
+    } finally {
+      setBiometricPrompting(false);
+    }
+  }, [biometricPrompting, userId, onBiometricSuccess]);
 
   useEffect(() => {
-    if (visible) {
-      setPin('');
+    if (!visible) {
+      autoTriggered.current = false;
+      setBiometricAvailable(false);
+      return;
     }
-  }, [visible]);
+
+    setPin('');
+
+    if (mode !== 'check' || !userId || !onBiometricSuccess) {
+      return;
+    }
+
+    let active = true;
+
+    const init = async () => {
+      const [bioStatus, cachedHash] = await Promise.all([
+        checkBiometrics(),
+        getCachedPinHash(userId),
+      ]);
+
+      if (!active) return;
+
+      const available = bioStatus.isAvailable && Boolean(cachedHash);
+      setBiometricAvailable(available);
+      setBiometryType(bioStatus.biometryType);
+
+      if (available && cachedHash && !autoTriggered.current) {
+        autoTriggered.current = true;
+        setBiometricPrompting(true);
+        try {
+          const ok = await promptBiometricUnlock();
+          if (active && ok) {
+            onBiometricSuccess(cachedHash);
+          }
+        } finally {
+          if (active) {
+            setBiometricPrompting(false);
+          }
+        }
+      }
+    };
+
+    init();
+
+    return () => {
+      active = false;
+    };
+  }, [visible, mode, userId, onBiometricSuccess]);
 
   return (
     <Modal
@@ -56,24 +139,46 @@ export function PinDialog({ visible, mode, error, onCancel, onSubmit }: Props) {
               : 'Type your PIN.'}
           </Text>
 
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: colors.backgroundElement,
-                color: colors.text,
-                borderColor: colors.border,
-              },
-            ]}
-            placeholder="PIN"
-            placeholderTextColor={colors.textSecondary}
-            secureTextEntry
-            keyboardType="numeric"
-            autoFocus
-            value={pin}
-            onChangeText={setPin}
-            onSubmitEditing={() => onSubmit(pin)}
-          />
+          <View style={styles.inputRow}>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.backgroundElement,
+                  color: colors.text,
+                  borderColor: colors.border,
+                },
+              ]}
+              placeholder="PIN"
+              placeholderTextColor={colors.textSecondary}
+              secureTextEntry
+              keyboardType="numeric"
+              autoFocus={!biometricAvailable}
+              value={pin}
+              onChangeText={setPin}
+              onSubmitEditing={() => onSubmit(pin)}
+            />
+            {mode === 'check' && biometricAvailable && (
+              <TouchableOpacity
+                style={[
+                  styles.biometricButton,
+                  {
+                    backgroundColor: colors.backgroundElement,
+                    borderColor: colors.border,
+                  },
+                ]}
+                onPress={triggerBiometric}
+                disabled={biometricPrompting}
+                accessibilityLabel="Unlock with biometrics"
+              >
+                <Ionicons
+                  name={biometryType === 'face' ? 'scan-outline' : 'finger-print'}
+                  size={20}
+                  color={colors.text}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
 
           {Boolean(error) && (
             <Text style={[styles.error, { color: colors.destructive }]}>
@@ -131,13 +236,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: Spacing.three,
   },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.two,
+  },
   input: {
+    flex: 1,
     height: 44,
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: Spacing.three,
     fontSize: 16,
-    marginBottom: Spacing.two,
+  },
+  biometricButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginLeft: Spacing.two,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   error: {
     fontSize: 12,

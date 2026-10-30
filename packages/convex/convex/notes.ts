@@ -1,6 +1,19 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+export function extractTags(body: string): string[] {
+  if (!body) return [];
+  const regex = /(?:^|[\s(\[{<])#([a-zA-Z0-9_\-]+)/g;
+  const tags = new Set<string>();
+  for (const match of body.matchAll(regex)) {
+    const tag = match[1]?.toLowerCase();
+    if (tag && /[a-zA-Z]/.test(tag)) {
+      tags.add(`#${tag}`);
+    }
+  }
+  return Array.from(tags);
+}
+
 async function requireOwnerId(ctx: any): Promise<string> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) throw new Error("Not signed in");
@@ -10,6 +23,8 @@ async function requireOwnerId(ctx: any): Promise<string> {
 export const listMine = query({
   args: {
     pinHash: v.optional(v.string()),
+    from: v.optional(v.number()),
+    to: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -24,31 +39,81 @@ export const listMine = query({
       !settings?.pinHash ||
       (Boolean(args.pinHash) && args.pinHash === settings.pinHash);
 
+    if (args.from !== undefined && args.to !== undefined && args.from > args.to) {
+      return [];
+    }
+
     const notes = await ctx.db
       .query("notes")
-      .withIndex("by_owner_created", (q: any) => q.eq("ownerId", ownerId))
+      .withIndex("by_owner_created", (q: any) => {
+        let range = q.eq("ownerId", ownerId);
+        if (args.from !== undefined) range = range.gte("createdAt", args.from);
+        if (args.to !== undefined) range = range.lte("createdAt", args.to);
+        return range;
+      })
       .order("desc")
       .collect();
 
-    const withUrls = await Promise.all(
-      notes.map(async (n: any) => {
-        const locked = Boolean(n.important && !isUnlocked);
-        const photoUrls = locked
-          ? []
-          : (
-              await Promise.all(
-                n.photoIds.map((id: any) => ctx.storage.getUrl(id)),
-              )
-            ).filter((u): u is string => u !== null);
-        return {
-          ...n,
-          body: locked ? "" : n.body,
-          photoUrls,
-          isLocked: locked,
-        };
+    return notes.map((n: any) => {
+      const locked = Boolean(n.important && !isUnlocked);
+      const tags = locked ? [] : (n.tags ?? extractTags(n.body));
+      return {
+        ...n,
+        body: locked ? "" : n.body,
+        photoIds: locked ? [] : n.photoIds,
+        photoUrls: [],
+        isLocked: locked,
+        tags,
+      };
+    });
+  },
+});
+
+export const getPhotoUrls = query({
+  args: {
+    noteIds: v.array(v.id("notes")),
+    pinHash: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return {};
+    const ownerId = identity.subject;
+
+    const settings = await ctx.db
+      .query("userSettings")
+      .withIndex("by_clerk_user", (q: any) => q.eq("clerkUserId", ownerId))
+      .unique();
+    const isUnlocked =
+      !settings?.pinHash ||
+      (Boolean(args.pinHash) && args.pinHash === settings.pinHash);
+
+    const notes = await Promise.all(
+      args.noteIds.map((id) => ctx.db.get(id)),
+    );
+
+    const validPhotoIds: string[] = [];
+    for (const note of notes) {
+      if (!note || note.ownerId !== ownerId) continue;
+      if (note.important && !isUnlocked) continue;
+      if (Array.isArray(note.photoIds)) {
+        validPhotoIds.push(...note.photoIds);
+      }
+    }
+
+    const uniquePhotoIds = Array.from(new Set(validPhotoIds));
+    const entries = await Promise.all(
+      uniquePhotoIds.map(async (id: any) => {
+        try {
+          const url = await ctx.storage.getUrl(id);
+          return [id, url] as const;
+        } catch {
+          return [id, null] as const;
+        }
       }),
     );
-    return withUrls;
+    return Object.fromEntries(
+      entries.filter((entry): entry is [string, string] => entry[1] !== null),
+    );
   },
 });
 
@@ -60,12 +125,14 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const ownerId = await requireOwnerId(ctx);
+    const tags = extractTags(args.body);
     return await ctx.db.insert("notes", {
       body: args.body,
       photoIds: args.photoIds,
       important: false,
       createdAt: args.createdAt,
       ownerId,
+      tags,
     });
   },
 });
@@ -90,7 +157,8 @@ export const update = mutation({
         throw new Error("Locked note: PIN required");
       }
     }
-    await ctx.db.patch(args.id, { body: args.body, photoIds: args.photoIds });
+    const tags = extractTags(args.body);
+    await ctx.db.patch(args.id, { body: args.body, photoIds: args.photoIds, tags });
     const nextIds = new Set(args.photoIds);
     for (const sid of note.photoIds ?? []) {
       if (!nextIds.has(sid)) {

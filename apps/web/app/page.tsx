@@ -1,14 +1,15 @@
 "use client"
 import { LandingPage } from "@/components/landing-page"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useMutation, useQuery } from "convex/react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { useAction, useMutation, useQuery } from "convex/react"
 import { api } from "@workspace/convex/api"
 import { useAuth, SignInButton, UserButton } from "@clerk/nextjs"
 import {
   ArrowUp,
   ChevronLeft,
   ChevronRight,
+  Download,
   ImagePlus,
   KeyRound,
   Lock,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Card } from "@workspace/ui/components/card"
+import { Markdown, toggleTaskInMarkdown } from "@workspace/ui/components/markdown"
 import {
   Dialog,
   DialogContent,
@@ -26,6 +28,7 @@ import {
 } from "@workspace/ui/components/dialog"
 import { Sheet, SheetContent, SheetTitle } from "@workspace/ui/components/sheet"
 import { hashPin } from "@/lib/pin"
+import { compressImage } from "@/lib/image"
 
 type View = "day" | "month" | "year" | "important"
 
@@ -38,6 +41,7 @@ type Note = {
   createdAt: number
   ownerId: string
   isLocked?: boolean
+  tags?: string[]
 }
 
 type DraftPhoto =
@@ -106,6 +110,36 @@ const hasClerkSession = () => {
   )
 }
 
+const highlightMatch = (text: string, query: string): ReactNode => {
+  const q = query.trim()
+  if (!q || !text) return text
+  const idx = text.toLowerCase().indexOf(q.toLowerCase())
+  if (idx === -1) return text
+
+  const start = idx > 60 ? Math.max(0, idx - 30) : 0
+  const end = Math.min(text.length, Math.max(start + 140, idx + q.length + 30))
+  const snippet =
+    (start > 0 ? "... " : "") +
+    text.slice(start, end) +
+    (end < text.length ? "..." : "")
+
+  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const parts = snippet.split(new RegExp(`(${escaped})`, "gi")).filter(Boolean)
+
+  return parts.map((part, i) =>
+    part.toLowerCase() === q.toLowerCase() ? (
+      <mark
+        key={i}
+        className="rounded-[2px] bg-amber-mineral/15 px-0.5 font-medium text-amber-mineral"
+      >
+        {part}
+      </mark>
+    ) : (
+      part
+    )
+  )
+}
+
 export default function Page() {
   const { isLoaded, isSignedIn, userId } = useAuth()
   const [activePinHash, setActivePinHash] = useState<string | null>(null)
@@ -122,12 +156,59 @@ export default function Page() {
     | undefined
   const createNote = useMutation(api.notes.create)
   const updateNote = useMutation(api.notes.update)
-  const removeNote = useMutation(api.notes.remove)
-  const setImportant = useMutation(api.notes.setImportant)
+  const removeNote = useMutation(api.notes.remove).withOptimisticUpdate(
+    (localStore, { id, pinHash }) => {
+      const queryArgsList: Array<{ pinHash?: string }> = [{}]
+      if (activePinHash) queryArgsList.push({ pinHash: activePinHash })
+      if (pinHash && pinHash !== activePinHash) queryArgsList.push({ pinHash })
+      for (const qArgs of queryArgsList) {
+        const current = localStore.getQuery(api.notes.listMine, qArgs)
+        if (Array.isArray(current)) {
+          localStore.setQuery(
+            api.notes.listMine,
+            qArgs,
+            current.filter((n) => n._id !== id)
+          )
+        }
+      }
+    }
+  )
+  const setImportant = useMutation(api.notes.setImportant).withOptimisticUpdate(
+    (localStore, { id, important, pinHash }) => {
+      const queryArgsList: Array<{ pinHash?: string }> = [{}]
+      if (activePinHash) queryArgsList.push({ pinHash: activePinHash })
+      if (pinHash && pinHash !== activePinHash) queryArgsList.push({ pinHash })
+      for (const qArgs of queryArgsList) {
+        const current = localStore.getQuery(api.notes.listMine, qArgs)
+        if (Array.isArray(current)) {
+          localStore.setQuery(
+            api.notes.listMine,
+            qArgs,
+            current.map((n) =>
+              n._id === id
+                ? {
+                    ...n,
+                    important,
+                    isLocked: important ? Boolean(n.isLocked && !unlocked) : false,
+                  }
+                : n
+            )
+          )
+        }
+      }
+    }
+  )
   const getUploadUrl = useMutation(api.notes.generateUploadUrl)
   const setPinHash = useMutation(api.userSettings.setPinHash)
   const removePin = useMutation(api.userSettings.removePin)
   const verifyPin = useMutation(api.userSettings.verifyPin)
+  const exportArchive = useAction(api.export.exportArchive)
+
+  const [exporting, setExporting] = useState(false)
+  const activePinHashRef = useRef<string | null>(null)
+  useEffect(() => {
+    activePinHashRef.current = activePinHash
+  }, [activePinHash])
 
   const [view, setView] = useState<View>("day")
   const [cursor, setCursor] = useState<Date>(() => new Date())
@@ -149,18 +230,130 @@ export default function Page() {
   } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const replaceIdx = useRef(-1)
+  const blobUrlsRef = useRef<Set<string>>(new Set())
+  const revokeBlobUrl = useCallback((url: string) => {
+    if (blobUrlsRef.current.has(url)) {
+      URL.revokeObjectURL(url)
+      blobUrlsRef.current.delete(url)
+    }
+  }, [])
+
+  const revokeAllBlobs = useCallback(() => {
+    blobUrlsRef.current.forEach((url) => URL.revokeObjectURL(url))
+    blobUrlsRef.current.clear()
+  }, [])
   const touchX = useRef(0)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const [selectedTag, setSelectedTag] = useState<string | null>(null)
 
   const all = useMemo(() => notes ?? [], [notes])
+
+  const activeTags = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const note of all) {
+      if (note.isLocked) continue
+      const tags = note.tags ?? []
+      for (const tag of tags) {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1)
+      }
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([tag]) => tag)
+  }, [all])
+
+  useEffect(() => {
+    if (selectedTag && !activeTags.includes(selectedTag)) {
+      setSelectedTag(null)
+    }
+  }, [activeTags, selectedTag])
+
+  const visibleNotes = useMemo(() => {
+    if (!selectedTag) return all
+    return all.filter((n) => !n.isLocked && n.tags?.includes(selectedTag))
+  }, [all, selectedTag])
+
+  const dayNotesRaw = useMemo(
+    () =>
+      visibleNotes
+        .filter((n) => sameDay(new Date(n.createdAt), cursor))
+        .sort((a, b) => a.createdAt - b.createdAt),
+    [visibleNotes, cursor]
+  )
+
+  const importantNotesRaw = useMemo(
+    () => visibleNotes.filter((n) => n.important).sort((a, b) => b.createdAt - a.createdAt),
+    [visibleNotes]
+  )
+
+  const activeNoteIds = useMemo(() => {
+    const visibleActive =
+      view === "day"
+        ? dayNotesRaw
+        : view === "important"
+          ? importantNotesRaw
+          : []
+    const ids = visibleActive
+      .filter((n) => !n.isLocked && (!n.important || unlocked) && n.photoIds.length > 0)
+      .map((n) => n._id)
+    if (editId) {
+      const editing = all.find((n) => n._id === editId)
+      if (
+        editing &&
+        !editing.isLocked &&
+        (!editing.important || unlocked) &&
+        editing.photoIds.length > 0
+      ) {
+        ids.push(editing._id)
+      }
+    }
+    return Array.from(new Set(ids))
+  }, [view, dayNotesRaw, importantNotesRaw, editId, all, unlocked])
+
+  const photoUrlMap = (useQuery(
+    api.notes.getPhotoUrls,
+    activeNoteIds.length
+      ? {
+          noteIds: activeNoteIds as any,
+          pinHash: activePinHash ?? undefined,
+        }
+      : "skip"
+  ) ?? {}) as Record<string, string>
+
+  const dayNotes = useMemo(
+    () =>
+      dayNotesRaw.map((n) => ({
+        ...n,
+        photoUrls: n.photoIds
+          .map((id) => photoUrlMap[id])
+          .filter((u): u is string => Boolean(u)),
+      })),
+    [dayNotesRaw, photoUrlMap]
+  )
+
+  const importantNotes = useMemo(
+    () =>
+      importantNotesRaw.map((n) => ({
+        ...n,
+        photoUrls: n.photoIds
+          .map((id) => photoUrlMap[id])
+          .filter((u): u is string => Boolean(u)),
+      })),
+    [importantNotesRaw, photoUrlMap]
+  )
 
   const matchingNotes = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     if (!q) return []
     return all
-      .filter((n) => !n.isLocked && n.body.toLowerCase().includes(q))
+      .filter((n) => {
+        if (n.isLocked) return false
+        if (n.body.toLowerCase().includes(q)) return true
+        if (n.tags?.some((t) => t.toLowerCase().includes(q))) return true
+        return false
+      })
       .sort((a, b) => b.createdAt - a.createdAt)
   }, [all, searchQuery])
 
@@ -182,18 +375,30 @@ export default function Page() {
     setView(v)
   }, [])
 
-  // Arrow keys shift cursor, skipped while typing or viewer/PIN open.
+  const openNew = useCallback(() => {
+    revokeAllBlobs()
+    setEditId(null)
+    setDraftBody("")
+    setDraftPhotos([])
+    setSheetOpen(true)
+  }, [revokeAllBlobs])
+
+  // Arrow keys shift cursor and 'N' opens composer, skipped while typing or overlays open.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (viewer || pinOpen || sheetOpen || searchOpen) return
       const t = document.activeElement
-      if (t && /INPUT|TEXTAREA/.test(t.tagName)) return
+      if (t && (/INPUT|TEXTAREA/.test(t.tagName) || (t as HTMLElement).isContentEditable)) return
       if (e.key === "ArrowRight") shift(1)
       if (e.key === "ArrowLeft") shift(-1)
+      if (e.key.toLowerCase() === "n" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        e.preventDefault()
+        openNew()
+      }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [shift, viewer, pinOpen, sheetOpen, searchOpen])
+  }, [shift, viewer, pinOpen, sheetOpen, searchOpen, openNew])
 
   // Search shortcuts: '/' or Cmd+K / Ctrl+K opens search dialog.
   useEffect(() => {
@@ -260,6 +465,7 @@ export default function Page() {
       const hash = await hashPin(userId, pinValue)
       await setPinHash({ pinHash: hash })
       setActivePinHash(hash)
+      activePinHashRef.current = hash
       closePin(true)
       return
     }
@@ -267,6 +473,7 @@ export default function Page() {
     const ok = await verifyPin({ pinHash: hash })
     if (ok) {
       setActivePinHash(hash)
+      activePinHashRef.current = hash
       closePin(true)
     } else {
       setPinError("Wrong PIN.")
@@ -304,6 +511,37 @@ export default function Page() {
     if (await needPin()) setView("important")
   }
 
+  const handleExport = async () => {
+    if (exporting) return
+    let pinHashToUse: string | undefined = activePinHashRef.current ?? undefined
+
+    if (settings?.hasPin && !pinHashToUse) {
+      const ok = await askPin("check")
+      if (!ok) return
+      pinHashToUse = activePinHashRef.current ?? undefined
+    }
+
+    setExporting(true)
+    try {
+      const res = await exportArchive(
+        pinHashToUse ? { pinHash: pinHashToUse } : {}
+      )
+      if (res?.downloadUrl) {
+        const a = document.createElement("a")
+        a.href = res.downloadUrl
+        a.download = res.filename || "memoflows-export.zip"
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+      }
+    } catch (err: any) {
+      console.error("Export failed", err)
+      alert(err?.message || "Failed to export archive")
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const toggleStar = async (note: Note) => {
     if ((note.isLocked || !note.important || !unlocked) && !(await needPin())) return
     await setImportant({
@@ -313,13 +551,6 @@ export default function Page() {
     })
   }
 
-  const openNew = () => {
-    setEditId(null)
-    setDraftBody("")
-    setDraftPhotos([])
-    setSheetOpen(true)
-  }
-
   const openEdit = async (note: Note) => {
     if (note.isLocked || (note.important && !unlocked)) {
       const ok = await needPin()
@@ -327,13 +558,14 @@ export default function Page() {
       const fresh = all.find((n) => n._id === note._id && !n.isLocked)
       if (fresh) note = fresh
     }
+    revokeAllBlobs()
     setEditId(note._id)
     setDraftBody(note.body)
     setDraftPhotos(
-      note.photoIds.map((id, i) => ({
+      note.photoIds.map((id) => ({
         kind: "stored" as const,
         storageId: id,
-        url: note.photoUrls[i] ?? "",
+        url: photoUrlMap[id] ?? "",
       }))
     )
     setSheetOpen(true)
@@ -347,31 +579,55 @@ export default function Page() {
     }
   }
 
-  const onFiles = (files: FileList | null) => {
+  const onFiles = async (files: FileList | null) => {
     if (!files?.length) return
-    const made: DraftPhoto[] = Array.from(files).map((file) => ({
-      kind: "new" as const,
-      file,
-      url: URL.createObjectURL(file),
-    }))
+    const currentReplace = replaceIdx.current
+    const list = Array.from(files)
+    if (fileRef.current) fileRef.current.value = ""
+    replaceIdx.current = -1
+
+    const compressed = await Promise.all(list.map((file) => compressImage(file)))
+    const made: DraftPhoto[] = compressed.map((file) => {
+      const url = URL.createObjectURL(file)
+      blobUrlsRef.current.add(url)
+      return {
+        kind: "new" as const,
+        file,
+        url,
+      }
+    })
     setDraftPhotos((prev) => {
-      if (replaceIdx.current >= 0 && made[0]) {
+      if (currentReplace >= 0 && made[0]) {
+        const target = prev[currentReplace]
+        if (target?.kind === "new") {
+          revokeBlobUrl(target.url)
+        }
+        for (let i = 1; i < made.length; i++) {
+          const extra = made[i]
+          if (extra) revokeBlobUrl(extra.url)
+        }
         const next = prev.slice()
-        next[replaceIdx.current] = made[0]
+        next[currentReplace] = made[0]
         return next
       }
       return prev.concat(made)
     })
-    replaceIdx.current = -1
-    if (fileRef.current) fileRef.current.value = ""
+  }
+
+  const removeDraftPhoto = (index: number) => {
+    setDraftPhotos((prev) => {
+      const target = prev[index]
+      if (target?.kind === "new") {
+        revokeBlobUrl(target.url)
+      }
+      return prev.filter((_, j) => j !== index)
+    })
   }
 
   const uploadDrafts = async (): Promise<string[]> => {
-    const ids: string[] = []
-    for (const p of draftPhotos) {
-      if (p.kind === "stored") {
-        ids.push(p.storageId)
-      } else {
+    return Promise.all(
+      draftPhotos.map(async (p) => {
+        if (p.kind === "stored") return p.storageId
         const url = (await getUploadUrl({})) as string
         const res = await fetch(url, {
           method: "POST",
@@ -380,10 +636,9 @@ export default function Page() {
         })
         if (!res.ok) throw new Error("Upload failed")
         const { storageId } = (await res.json()) as { storageId: string }
-        ids.push(storageId)
-      }
-    }
-    return ids
+        return storageId
+      })
+    )
   }
 
   useEffect(() => {
@@ -392,14 +647,42 @@ export default function Page() {
     if (current && !current.isLocked && !draftBody && !draftPhotos.length) {
       setDraftBody(current.body)
       setDraftPhotos(
-        current.photoIds.map((id, i) => ({
+        current.photoIds.map((id) => ({
           kind: "stored" as const,
           storageId: id,
-          url: current.photoUrls[i] ?? "",
+          url: photoUrlMap[id] ?? "",
         }))
       )
     }
-  }, [all, editId, sheetOpen, draftBody, draftPhotos.length])
+  }, [all, editId, sheetOpen, draftBody, draftPhotos.length, photoUrlMap])
+
+  useEffect(() => {
+    if (!sheetOpen || !editId) return
+    setDraftPhotos((prev) => {
+      let changed = false
+      const next = prev.map((p) => {
+        if (p.kind === "stored" && !p.url && photoUrlMap[p.storageId]) {
+          changed = true
+          return { ...p, url: photoUrlMap[p.storageId]! }
+        }
+        return p
+      })
+      return changed ? next : prev
+    })
+  }, [photoUrlMap, sheetOpen, editId])
+
+  useEffect(() => {
+    if (!sheetOpen) {
+      revokeAllBlobs()
+      setDraftPhotos((prev) => (prev.length ? [] : prev))
+    }
+  }, [sheetOpen, revokeAllBlobs])
+
+  useEffect(() => {
+    return () => {
+      revokeAllBlobs()
+    }
+  }, [revokeAllBlobs])
 
   const saveNote = async () => {
     const body = draftBody.trim()
@@ -417,7 +700,8 @@ export default function Page() {
       } else {
         const base = sameDay(cursor, new Date())
           ? Date.now()
-          : startOfDay(cursor).getTime() + new Date().getHours() * 3600000
+          : startOfDay(cursor).getTime() +
+            (Date.now() - startOfDay(new Date()).getTime())
         await createNote({ body, photoIds, createdAt: base })
       }
       setSheetOpen(false)
@@ -428,13 +712,32 @@ export default function Page() {
 
   const deleteNote = async () => {
     if (editId && confirm("Delete this note.")) {
+      const id = editId
+      setSheetOpen(false)
       await removeNote({
-        id: editId as any,
+        id: id as any,
         pinHash: activePinHash ?? undefined,
       })
-      setSheetOpen(false)
     }
   }
+
+  const handleToggleTask = useCallback(
+    async (note: Note, taskIndex: number) => {
+      const nextBody = toggleTaskInMarkdown(note.body, taskIndex)
+      if (nextBody === note.body) return
+      try {
+        await updateNote({
+          id: note._id as any,
+          body: nextBody,
+          photoIds: (note.photoIds ?? []) as any,
+          pinHash: activePinHash ?? undefined,
+        })
+      } catch (err) {
+        console.error("Failed to toggle task", err)
+      }
+    },
+    [updateNote, activePinHash]
+  )
 
   // ponytail: avoids flashing app skeleton to unauthenticated visitors before Clerk loads.
   if (!isLoaded) {
@@ -443,12 +746,6 @@ export default function Page() {
   }
   if (!isSignedIn) return <LandingPage />
 
-  const dayNotes = all
-    .filter((n) => sameDay(new Date(n.createdAt), cursor))
-    .sort((a, b) => a.createdAt - b.createdAt)
-  const importantNotes = all
-    .filter((n) => n.important)
-    .sort((a, b) => b.createdAt - a.createdAt)
   const offToday = !(sameDay(cursor, new Date()) && view === "day")
 
   return (
@@ -481,6 +778,20 @@ export default function Page() {
             </button>
           </span>
           <div className="flex items-center gap-1.5">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleExport}
+              disabled={exporting}
+              title="Export all data as .zip"
+              aria-label="export all data"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <Download className="size-3.5 sm:mr-1" />
+              <span className="hidden sm:inline">
+                {exporting ? "Exporting..." : "Export"}
+              </span>
+            </Button>
             <UserButton appearance={{ elements: { avatarBox: "size-7" } }} />
           </div>
         </nav>
@@ -580,6 +891,35 @@ export default function Page() {
             )}
           </span>
         </div>
+        {activeTags.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pt-1 pb-2 text-xs no-scrollbar">
+            <button
+              onClick={() => setSelectedTag(null)}
+              className={`h-7 shrink-0 rounded-full px-3 text-[12px] font-medium transition-colors ${
+                selectedTag === null
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border/50 bg-secondary/40 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+              }`}
+            >
+              All
+            </button>
+            {activeTags.map((tag) => (
+              <button
+                key={tag}
+                onClick={() =>
+                  setSelectedTag((prev) => (prev === tag ? null : tag))
+                }
+                className={`h-7 shrink-0 rounded-full px-3 text-[12px] font-medium transition-colors ${
+                  selectedTag === tag
+                    ? "bg-primary font-semibold text-primary-foreground"
+                    : "border border-border/50 bg-secondary/40 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+                }`}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        )}
       </header>
 
       <main
@@ -604,12 +944,14 @@ export default function Page() {
                 onOpen={openEdit}
                 onViewer={(l, i) => setViewer({ list: l, index: i })}
                 unlocked={unlocked}
+                onToggleTask={handleToggleTask}
+                onSelectTag={(t) => setSelectedTag(t)}
               />
             )}
             {view === "month" && (
               <MonthView
                 cursor={cursor}
-                notes={all}
+                notes={visibleNotes}
                 onDrill={(d) => drill("day", d)}
                 unlocked={unlocked}
               />
@@ -617,7 +959,7 @@ export default function Page() {
             {view === "year" && (
               <YearView
                 cursor={cursor}
-                notes={all}
+                notes={visibleNotes}
                 onDrill={(d) => drill("month", d)}
                 unlocked={unlocked}
               />
@@ -629,6 +971,8 @@ export default function Page() {
                 onOpen={openEdit}
                 onViewer={(l, i) => setViewer({ list: l, index: i })}
                 unlocked={unlocked}
+                onToggleTask={handleToggleTask}
+                onSelectTag={(t) => setSelectedTag(t)}
               />
             )}
           </>
@@ -658,15 +1002,30 @@ export default function Page() {
       </div>
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent>
+        <SheetContent
+          onKeyDown={(e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+              e.preventDefault()
+              void saveNote()
+            }
+          }}
+        >
           <SheetTitle className="text-[13px] font-bold text-muted-foreground">
             {editId ? "Edit note" : "New note"}
           </SheetTitle>
           <textarea
+            autoFocus
             className="mt-3 min-h-24 w-full rounded-xl border border-border bg-card p-3 text-[15px] outline-none"
             placeholder="type a note"
             value={draftBody}
             onChange={(e) => setDraftBody(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                e.preventDefault()
+                e.stopPropagation()
+                void saveNote()
+              }
+            }}
           />
           <input
             ref={fileRef}
@@ -691,9 +1050,7 @@ export default function Page() {
                 />
                 <button
                   className="absolute top-0.5 right-0.5 flex size-5 items-center justify-center rounded-full bg-black/65 text-white"
-                  onClick={() =>
-                    setDraftPhotos((prev) => prev.filter((_, j) => j !== i))
-                  }
+                  onClick={() => removeDraftPhoto(i)}
                   aria-label="remove photo"
                 >
                   <X className="size-3" />
@@ -833,8 +1190,28 @@ export default function Page() {
           </div>
           <div className="max-h-[60vh] overflow-y-auto p-2">
             {!searchQuery.trim() ? (
-              <div className="p-6 text-center text-xs text-muted-foreground">
-                Type to search notes
+              <div className="p-4">
+                {activeTags.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-medium tracking-[0.16em] uppercase text-muted-foreground">
+                      Tags
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {activeTags.map((tag) => (
+                        <button
+                          key={tag}
+                          onClick={() => setSearchQuery(tag)}
+                          className="rounded-full border border-border/50 bg-secondary/40 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="pt-3 text-center text-xs text-muted-foreground">
+                  Type to search notes
+                </div>
               </div>
             ) : matchingNotes.length === 0 ? (
               <div className="p-6 text-center text-xs text-muted-foreground">
@@ -891,12 +1268,12 @@ export default function Page() {
                           <span className="flex items-center gap-1 text-muted-foreground italic">
                             <Lock className="inline size-3" /> Locked note
                           </span>
+                        ) : note.body ? (
+                          highlightMatch(note.body, searchQuery)
                         ) : (
-                          note.body || (
-                            <span className="text-muted-foreground italic">
-                              Photo note
-                            </span>
-                          )
+                          <span className="text-muted-foreground italic">
+                            Photo note
+                          </span>
                         )}
                       </p>
                     </div>
@@ -979,28 +1356,39 @@ function NoteCard({
   onOpen,
   onViewer,
   unlocked,
+  onToggleTask,
+  onSelectTag,
 }: {
   note: Note
   onStar: (n: Note) => void
   onOpen: (n: Note) => void
   onViewer: (list: string[], i: number) => void
   unlocked: boolean
+  onToggleTask?: (note: Note, taskIndex: number) => void
+  onSelectTag?: (tag: string) => void
 }) {
   const isLocked = Boolean(note.isLocked ?? (note.important && !unlocked))
   return (
     <Card className="my-1.5 cursor-pointer p-3" onClick={() => onOpen(note)}>
       <div className="flex items-start justify-between gap-2">
-        <span className="min-w-0 text-sm">
+        <div className="min-w-0 flex-1 text-sm">
           {isLocked ? (
             <span className="flex items-center gap-1 italic text-muted-foreground">
               <Lock className="inline size-3" /> Locked note
             </span>
           ) : note.body.trim() ? (
-            note.body
+            <Markdown
+              content={note.body}
+              onToggleTask={
+                onToggleTask
+                  ? (taskIndex) => onToggleTask(note, taskIndex)
+                  : undefined
+              }
+            />
           ) : (
-            "photo"
+            <span className="italic text-muted-foreground">photo</span>
           )}
-        </span>
+        </div>
         <button
           className={`flex-none pl-1 text-sm ${note.important ? "text-amber-mineral opacity-100" : "text-muted-foreground opacity-45"}`}
           onClick={(e) => {
@@ -1034,6 +1422,22 @@ function NoteCard({
             }}
           />
         ))}
+      {!isLocked && note.tags && note.tags.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {note.tags.map((t) => (
+            <span
+              key={t}
+              onClick={(e) => {
+                e.stopPropagation()
+                onSelectTag?.(t)
+              }}
+              className="cursor-pointer rounded-full border border-border/40 bg-surface-inset px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
       <small className="mt-1 block text-[11px] text-muted-foreground">
         {new Date(note.createdAt).toLocaleDateString([], {
           month: "short",
@@ -1044,8 +1448,8 @@ function NoteCard({
           hour: "numeric",
           minute: "2-digit",
         })}
-        {!isLocked && note.photoUrls.length
-          ? ` · ${note.photoUrls.length} photo${note.photoUrls.length > 1 ? "s" : ""}`
+        {!isLocked && note.photoIds.length
+          ? ` · ${note.photoIds.length} photo${note.photoIds.length > 1 ? "s" : ""}`
           : ""}
       </small>
     </Card>
@@ -1059,6 +1463,8 @@ function DayRail({
   onOpen,
   onViewer,
   unlocked,
+  onToggleTask,
+  onSelectTag,
 }: {
   notes: Note[]
   cursor: Date
@@ -1066,6 +1472,8 @@ function DayRail({
   onOpen: (n: Note) => void
   onViewer: (list: string[], i: number) => void
   unlocked: boolean
+  onToggleTask?: (note: Note, taskIndex: number) => void
+  onSelectTag?: (tag: string) => void
 }) {
   const nowH = new Date().getHours()
   const isToday = sameDay(cursor, new Date())
@@ -1104,6 +1512,8 @@ function DayRail({
                 onOpen={onOpen}
                 onViewer={onViewer}
                 unlocked={unlocked}
+                onToggleTask={onToggleTask}
+                onSelectTag={onSelectTag}
               />
             ))}
           </div>
@@ -1301,12 +1711,16 @@ function ImportantView({
   onOpen,
   onViewer,
   unlocked,
+  onToggleTask,
+  onSelectTag,
 }: {
   notes: Note[]
   onStar: (n: Note) => void
   onOpen: (n: Note) => void
   onViewer: (list: string[], i: number) => void
   unlocked: boolean
+  onToggleTask?: (note: Note, taskIndex: number) => void
+  onSelectTag?: (tag: string) => void
 }) {
   if (!notes.length)
     return (
@@ -1324,6 +1738,8 @@ function ImportantView({
           onOpen={onOpen}
           onViewer={onViewer}
           unlocked={unlocked}
+          onToggleTask={onToggleTask}
+          onSelectTag={onSelectTag}
         />
       ))}
     </div>

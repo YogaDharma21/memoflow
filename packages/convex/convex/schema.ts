@@ -8,6 +8,7 @@ export default defineSchema({
     important: v.boolean(),
     createdAt: v.number(),
     ownerId: v.string(),
+    tags: v.optional(v.array(v.string())),
   })
     .index("by_owner_created", ["ownerId", "createdAt"])
     .index("by_owner_important", ["ownerId", "important"]),

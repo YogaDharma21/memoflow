@@ -68,11 +68,7 @@ export const removePin = mutation({
       )
       .unique()
     if (existing) {
-      if (
-        existing.pinHash &&
-        args.pinHash &&
-        existing.pinHash !== args.pinHash
-      ) {
+      if (existing.pinHash && existing.pinHash !== args.pinHash) {
         throw new Error("PIN required")
       }
       await ctx.db.patch(existing._id, { pinHash: undefined })

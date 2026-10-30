@@ -1,143 +1,96 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   ActivityIndicator,
+  Platform,
+  useColorScheme,
 } from 'react-native';
-import { useSignIn, useSignUp } from '@clerk/clerk-expo';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSSO } from '@clerk/expo';
+import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
+import { FontAwesome } from '@expo/vector-icons';
 import { Colors, Spacing } from '@/constants/theme';
-import { useColorScheme } from 'react-native';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export function AuthView() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
+  const router = useRouter();
 
-  const { signIn, setActive: setSignInActive, isLoaded: signInLoaded } = useSignIn();
-  const { signUp, setActive: setSignUpActive, isLoaded: signUpLoaded } = useSignUp();
-
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { startSSOFlow } = useSSO();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const onSignIn = async () => {
-    if (!signInLoaded || !signIn) return;
-    setLoading(true);
-    setError('');
-    try {
-      const result = await signIn.create({
-        identifier: email.trim(),
-        password,
-      });
-      if (result.status === 'complete') {
-        await setSignInActive({ session: result.createdSessionId });
-      } else {
-        setError('Additional verification required.');
-      }
-    } catch (err: any) {
-      setError(err?.errors?.[0]?.message || 'Sign in failed');
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    void WebBrowser.warmUpAsync();
+    return () => {
+      void WebBrowser.coolDownAsync();
+    };
+  }, []);
 
-  const onSignUp = async () => {
-    if (!signUpLoaded || !signUp) return;
+  const onGoogleSignIn = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const result = await signUp.create({
-        emailAddress: email.trim(),
-        password,
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy: 'oauth_google',
       });
-      if (result.status === 'complete') {
-        await setSignUpActive({ session: result.createdSessionId });
-      } else {
-        setError('Check email to complete sign up.');
+      if (createdSessionId && setActive) {
+        await setActive({ session: createdSessionId });
+        router.replace('/');
       }
     } catch (err: any) {
-      setError(err?.errors?.[0]?.message || 'Sign up failed');
+      setError(err?.errors?.[0]?.message || err?.message || 'Google sign in failed');
     } finally {
       setLoading(false);
     }
-  };
+  }, [startSSOFlow, router]);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.card}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['top', 'bottom', 'left', 'right']}
+    >
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.cardBorder,
+          },
+        ]}
+      >
         <Text style={[styles.title, { color: colors.text }]}>memoflows</Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Sign in to see your notes.
-        </Text>
 
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: colors.backgroundElement,
-              color: colors.text,
-              borderColor: colors.border,
-            },
-          ]}
-          placeholder="Email address"
-          placeholderTextColor={colors.textSecondary}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={setEmail}
-        />
-
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: colors.backgroundElement,
-              color: colors.text,
-              borderColor: colors.border,
-            },
-          ]}
-          placeholder="Password"
-          placeholderTextColor={colors.textSecondary}
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-
-        {Boolean(error) && <Text style={[styles.error, { color: colors.destructive }]}>{error}</Text>}
+        {Boolean(error) && (
+          <Text style={[styles.error, { color: colors.destructive }]}>{error}</Text>
+        )}
 
         <TouchableOpacity
           style={[styles.button, { backgroundColor: colors.primary }]}
-          onPress={mode === 'signin' ? onSignIn : onSignUp}
+          onPress={onGoogleSignIn}
           disabled={loading}
+          activeOpacity={0.8}
         >
           {loading ? (
             <ActivityIndicator color={colors.primaryForeground} size="small" />
           ) : (
-            <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>
-              {mode === 'signin' ? 'Sign in' : 'Create account'}
-            </Text>
+            <View style={styles.buttonContent}>
+              <FontAwesome name="google" size={16} color={colors.primaryForeground} />
+              <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>
+                Continue with Google
+              </Text>
+            </View>
           )}
         </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => {
-            setMode(mode === 'signin' ? 'signup' : 'signin');
-            setError('');
-          }}
-          style={styles.switchButton}
-        >
-          <Text style={[styles.switchText, { color: colors.textSecondary }]}>
-            {mode === 'signin'
-              ? "Don't have an account? Sign up"
-              : 'Already have an account? Sign in'}
-          </Text>
-        </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -152,47 +105,37 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 380,
     alignItems: 'center',
+    borderRadius: 24,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.five,
   },
   title: {
-    fontSize: 22,
+    fontSize: 28,
     fontWeight: '700',
-    marginBottom: Spacing.one,
-  },
-  subtitle: {
-    fontSize: 14,
+    letterSpacing: -0.5,
     marginBottom: Spacing.four,
   },
-  input: {
-    width: '100%',
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: Spacing.three,
-    marginBottom: Spacing.two,
-    fontSize: 14,
+  error: {
+    fontSize: 13,
+    marginBottom: Spacing.three,
+    textAlign: 'center',
   },
   button: {
     width: '100%',
-    height: 44,
-    borderRadius: 12,
+    height: 48,
+    borderRadius: 999,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: Spacing.two,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
   },
   buttonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
-  },
-  switchButton: {
-    marginTop: Spacing.three,
-    padding: Spacing.one,
-  },
-  switchText: {
-    fontSize: 13,
-  },
-  error: {
-    fontSize: 12,
-    marginVertical: Spacing.one,
-    textAlign: 'center',
   },
 });

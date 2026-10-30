@@ -7,7 +7,7 @@ function createMockCtx({ userId = "user_123", pinHash = null, notes = [] } = {})
     userSettings: pinHash ? [{ _id: "s1", clerkUserId: userId, pinHash }] : [],
     notes: notes.map((n, i) => ({
       _id: n._id || `note_${i}`,
-      ownerId: userId,
+      ownerId: n.ownerId || userId,
       body: n.body || "",
       photoIds: n.photoIds || [],
       important: Boolean(n.important),
@@ -33,6 +33,14 @@ function createMockCtx({ userId = "user_123", pinHash = null, notes = [] } = {})
                 rows = rows.filter((r) => r[field] === val);
                 return filterHelper;
               },
+              gte: (field, val) => {
+                rows = rows.filter((r) => r[field] >= val);
+                return filterHelper;
+              },
+              lte: (field, val) => {
+                rows = rows.filter((r) => r[field] <= val);
+                return filterHelper;
+              },
             };
             predicate(filterHelper);
           }
@@ -47,7 +55,7 @@ function createMockCtx({ userId = "user_123", pinHash = null, notes = [] } = {})
       }),
       get: async (id) => store.notes.find((n) => n._id === id) || null,
       patch: async (id, fields) => {
-        const item = store.notes.find((n) => n._id === id);
+        const item = store.notes.find((n) => n._id === id) || store.userSettings.find((s) => s._id === id);
         if (item) Object.assign(item, fields);
       },
       delete: async (id) => {
@@ -88,11 +96,43 @@ async function runTests() {
     assert.equal(bad, false, "verifyPin returns false on wrong hash");
   }
 
+  // 2b. removePin requires valid pinHash when PIN is configured
+  {
+    const ctx = createMockCtx({ pinHash: "secret_pin" });
+
+    // Calling removePin without pinHash must reject
+    await assert.rejects(
+      async () => {
+        await settingsApi.removePin._handler(ctx, {});
+      },
+      /PIN required/,
+      "removePin without pinHash must reject when PIN is set"
+    );
+
+    // Calling removePin with wrong pinHash must reject
+    await assert.rejects(
+      async () => {
+        await settingsApi.removePin._handler(ctx, { pinHash: "wrong_pin" });
+      },
+      /PIN required/,
+      "removePin with wrong pinHash must reject"
+    );
+
+    // Calling removePin with correct pinHash succeeds and clears PIN
+    await settingsApi.removePin._handler(ctx, { pinHash: "secret_pin" });
+    const status = await settingsApi.getMe._handler(ctx, {});
+    assert.equal(status.hasPin, false, "removePin clears user PIN");
+
+    // Calling removePin when no PIN is set succeeds
+    const ctxNoPin = createMockCtx({ pinHash: null });
+    await settingsApi.removePin._handler(ctxNoPin, {});
+  }
+
   // 3. Redaction in notes:listMine
   {
     const sampleNotes = [
-      { _id: "n1", important: true, body: "super confidential", photoIds: ["p1"] },
-      { _id: "n2", important: false, body: "regular groceries", photoIds: ["p2"] },
+      { _id: "n1", important: true, body: "super confidential", photoIds: ["p1"], createdAt: 100 },
+      { _id: "n2", important: false, body: "regular groceries", photoIds: ["p2"], createdAt: 200 },
     ];
 
     // Case A: User has PIN, query has no pinHash (locked state)
@@ -103,24 +143,26 @@ async function runTests() {
 
     assert.equal(lockedNote.isLocked, true, "Important note must be marked isLocked");
     assert.equal(lockedNote.body, "", "Important note body must be redacted on server");
+    assert.deepEqual(lockedNote.photoIds, [], "Important note photoIds must be redacted on server");
     assert.deepEqual(lockedNote.photoUrls, [], "Important note photoUrls must be redacted on server");
 
     assert.equal(regularNote.isLocked, false, "Regular note must not be locked");
     assert.equal(regularNote.body, "regular groceries", "Regular note body preserved");
-    assert.equal(regularNote.photoUrls.length, 1, "Regular note photos preserved");
+    assert.equal(regularNote.photoIds.length, 1, "Regular note photoIds preserved");
 
     // Case B: User has PIN, query supplies wrong pinHash
     const badAuthList = await notesApi.listMine._handler(ctxLocked, { pinHash: "bad_pin" });
     const badAuthNote = badAuthList.find((n) => n._id === "n1");
     assert.equal(badAuthNote.isLocked, true, "Wrong pinHash keeps note locked");
     assert.equal(badAuthNote.body, "", "Wrong pinHash keeps body redacted");
+    assert.deepEqual(badAuthNote.photoIds, [], "Wrong pinHash keeps photoIds redacted");
 
     // Case C: User has PIN, query supplies correct pinHash (unlocked state)
     const unlockedList = await notesApi.listMine._handler(ctxLocked, { pinHash: "pin_1234" });
     const unlockedNote = unlockedList.find((n) => n._id === "n1");
     assert.equal(unlockedNote.isLocked, false, "Correct pinHash unlocks note");
     assert.equal(unlockedNote.body, "super confidential", "Body is returned when unlocked");
-    assert.equal(unlockedNote.photoUrls.length, 1, "Photos are returned when unlocked");
+    assert.equal(unlockedNote.photoIds.length, 1, "Photos are returned when unlocked");
 
     // Case D: User has no PIN configured
     const ctxNoPin = createMockCtx({ pinHash: null, notes: sampleNotes });
@@ -128,6 +170,42 @@ async function runTests() {
     const n1 = noPinList.find((n) => n._id === "n1");
     assert.equal(n1.isLocked, false, "Notes are not locked if user has no PIN");
     assert.equal(n1.body, "super confidential", "Body visible if user has no PIN");
+
+    // Case E: Windowed query filtering by createdAt range
+    const windowedList = await notesApi.listMine._handler(ctxNoPin, { from: 150, to: 250 });
+    assert.equal(windowedList.length, 1, "Windowed query returns only matching timestamp notes");
+    assert.equal(windowedList[0]._id, "n2", "Windowed query matches note n2");
+
+    const invertedRange = await notesApi.listMine._handler(ctxNoPin, { from: 300, to: 200 });
+    assert.deepEqual(invertedRange, [], "Inverted range from > to returns empty array");
+
+    // Case F: Secure on-demand photo URL resolution via getPhotoUrls
+    const sampleWithOther = [
+      ...sampleNotes,
+      { _id: "other1", ownerId: "other_user", important: false, body: "not mine", photoIds: ["p_other"] },
+    ];
+    const ctxScoped = createMockCtx({ pinHash: "pin_1234", notes: sampleWithOther });
+
+    // Owned unlocked note returns photo URL
+    const resolvedUrls = await notesApi.getPhotoUrls._handler(ctxScoped, { noteIds: ["n2"] });
+    assert.deepEqual(resolvedUrls, { p2: "https://storage.mock/p2" }, "getPhotoUrls maps storage IDs to URLs for owned notes");
+
+    // Foreign note does NOT return photo URL
+    const foreignUrls = await notesApi.getPhotoUrls._handler(ctxScoped, { noteIds: ["other1"] });
+    assert.deepEqual(foreignUrls, {}, "getPhotoUrls denies photo resolution for notes owned by other users");
+
+    // Locked note without valid PIN does NOT return photo URL
+    const lockedUrls = await notesApi.getPhotoUrls._handler(ctxScoped, { noteIds: ["n1"] });
+    assert.deepEqual(lockedUrls, {}, "getPhotoUrls denies photo resolution for locked notes without PIN");
+
+    // Locked note with valid PIN returns photo URL
+    const unlockedUrls = await notesApi.getPhotoUrls._handler(ctxScoped, { noteIds: ["n1"], pinHash: "pin_1234" });
+    assert.deepEqual(unlockedUrls, { p1: "https://storage.mock/p1" }, "getPhotoUrls permits photo resolution for locked notes with valid PIN");
+
+    // Unauthenticated caller returns empty map
+    const ctxUnauth = createMockCtx({ userId: null, notes: sampleWithOther });
+    const unauthUrls = await notesApi.getPhotoUrls._handler(ctxUnauth, { noteIds: ["n2"] });
+    assert.deepEqual(unauthUrls, {}, "getPhotoUrls returns empty map for unauthenticated caller");
   }
 
   // 4. Mutations block unauthenticated edits to locked notes
@@ -165,6 +243,24 @@ async function runTests() {
     await notesApi.remove._handler(ctx, { id: "n1", pinHash: "valid_hash" });
     const removed = await ctx.db.get("n1");
     assert.equal(removed, null, "Removing locked note with valid PIN succeeds");
+
+    // Toggle star on locked note without PIN throws
+    const starNotes = [
+      { _id: "s1", important: true, body: "starred secret", photoIds: [] },
+    ];
+    const starCtx = createMockCtx({ pinHash: "valid_hash", notes: starNotes });
+    await assert.rejects(
+      async () => {
+        await notesApi.setImportant._handler(starCtx, { id: "s1", important: false });
+      },
+      /PIN required/,
+      "Toggling star on locked note without PIN must reject"
+    );
+
+    // Toggle star on locked note with valid PIN succeeds
+    await notesApi.setImportant._handler(starCtx, { id: "s1", important: false, pinHash: "valid_hash" });
+    const unstarred = await starCtx.db.get("s1");
+    assert.equal(unstarred.important, false, "Toggling star with valid PIN succeeds");
   }
 
   console.log("All PIN protection verification tests PASSED!");
