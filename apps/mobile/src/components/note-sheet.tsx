@@ -134,46 +134,19 @@ export function NoteSheet({
   const onTakePhoto = async () => {
     setError('');
     try {
-      const current = await ImagePicker.getCameraPermissionsAsync();
-      if (current.status === 'granted') {
+      let { status, canAskAgain } = await ImagePicker.getCameraPermissionsAsync();
+      if (status !== 'granted' && canAskAgain) {
+        const req = await ImagePicker.requestCameraPermissionsAsync();
+        status = req.status;
+        canAskAgain = req.canAskAgain;
+      }
+
+      if (status === 'granted') {
         await launchCamera();
         return;
       }
 
-      if (!current.canAskAgain) {
-        setPermissionDialog({
-          visible: true,
-          needsSettings: true,
-          message:
-            'Camera permission is disabled in system settings. Open settings to grant permission.',
-        });
-        return;
-      }
-
-      setPermissionDialog({
-        visible: true,
-        needsSettings: false,
-        message: 'Allow camera access to capture and attach photos to your notes.',
-      });
-    } catch (err: any) {
-      setError(err?.message || 'Could not access camera');
-    }
-  };
-
-  const handlePermissionConfirm = async () => {
-    const isSettings = permissionDialog.needsSettings;
-    setPermissionDialog((prev) => ({ ...prev, visible: false }));
-
-    if (isSettings) {
-      void Linking.openSettings();
-      return;
-    }
-
-    try {
-      const req = await ImagePicker.requestCameraPermissionsAsync();
-      if (req.status === 'granted') {
-        await launchCamera();
-      } else if (!req.canAskAgain) {
+      if (!canAskAgain) {
         setPermissionDialog({
           visible: true,
           needsSettings: true,
@@ -181,10 +154,18 @@ export function NoteSheet({
             'Camera permission is disabled in system settings. Open settings to grant permission.',
         });
       } else {
-        setError('Camera permission was not granted.');
+        setError('Camera access is required to take photos.');
       }
     } catch (err: any) {
-      setError(err?.message || 'Could not request camera permission');
+      setError(err?.message || 'Could not access camera');
+    }
+  };
+
+  const handlePermissionConfirm = () => {
+    const isSettings = permissionDialog.needsSettings;
+    setPermissionDialog((prev) => ({ ...prev, visible: false }));
+    if (isSettings) {
+      void Linking.openSettings();
     }
   };
 
