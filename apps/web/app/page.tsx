@@ -2,13 +2,14 @@
 import { LandingPage } from "@/components/landing-page"
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { useMutation, useQuery } from "convex/react"
+import { useAction, useMutation, useQuery } from "convex/react"
 import { api } from "@workspace/convex/api"
 import { useAuth, SignInButton, UserButton } from "@clerk/nextjs"
 import {
   ArrowUp,
   ChevronLeft,
   ChevronRight,
+  Download,
   ImagePlus,
   KeyRound,
   Lock,
@@ -199,6 +200,13 @@ export default function Page() {
   const setPinHash = useMutation(api.userSettings.setPinHash)
   const removePin = useMutation(api.userSettings.removePin)
   const verifyPin = useMutation(api.userSettings.verifyPin)
+  const exportArchive = useAction(api.export.exportArchive)
+
+  const [exporting, setExporting] = useState(false)
+  const activePinHashRef = useRef<string | null>(null)
+  useEffect(() => {
+    activePinHashRef.current = activePinHash
+  }, [activePinHash])
 
   const [view, setView] = useState<View>("day")
   const [cursor, setCursor] = useState<Date>(() => new Date())
@@ -424,6 +432,7 @@ export default function Page() {
       const hash = await hashPin(userId, pinValue)
       await setPinHash({ pinHash: hash })
       setActivePinHash(hash)
+      activePinHashRef.current = hash
       closePin(true)
       return
     }
@@ -431,6 +440,7 @@ export default function Page() {
     const ok = await verifyPin({ pinHash: hash })
     if (ok) {
       setActivePinHash(hash)
+      activePinHashRef.current = hash
       closePin(true)
     } else {
       setPinError("Wrong PIN.")
@@ -466,6 +476,37 @@ export default function Page() {
       return
     }
     if (await needPin()) setView("important")
+  }
+
+  const handleExport = async () => {
+    if (exporting) return
+    let pinHashToUse: string | undefined = activePinHashRef.current ?? undefined
+
+    if (settings?.hasPin && !pinHashToUse) {
+      const ok = await askPin("check")
+      if (!ok) return
+      pinHashToUse = activePinHashRef.current ?? undefined
+    }
+
+    setExporting(true)
+    try {
+      const res = await exportArchive(
+        pinHashToUse ? { pinHash: pinHashToUse } : {}
+      )
+      if (res?.downloadUrl) {
+        const a = document.createElement("a")
+        a.href = res.downloadUrl
+        a.download = res.filename || "memoflows-export.zip"
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+      }
+    } catch (err: any) {
+      console.error("Export failed", err)
+      alert(err?.message || "Failed to export archive")
+    } finally {
+      setExporting(false)
+    }
   }
 
   const toggleStar = async (note: Note) => {
@@ -686,6 +727,20 @@ export default function Page() {
             </button>
           </span>
           <div className="flex items-center gap-1.5">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleExport}
+              disabled={exporting}
+              title="Export all data as .zip"
+              aria-label="export all data"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <Download className="size-3.5 sm:mr-1" />
+              <span className="hidden sm:inline">
+                {exporting ? "Exporting..." : "Export"}
+              </span>
+            </Button>
             <UserButton appearance={{ elements: { avatarBox: "size-7" } }} />
           </div>
         </nav>
