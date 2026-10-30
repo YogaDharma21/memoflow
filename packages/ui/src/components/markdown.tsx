@@ -7,7 +7,7 @@ import {
   toggleTaskInMarkdown,
   type MarkdownBlock,
   type InlineToken,
-} from "../lib/markdown.js"
+} from "@workspace/ui/lib/markdown"
 
 export {
   parseMarkdownBlocks,
