@@ -89,6 +89,74 @@ export default function HomeScreen() {
 
   const allNotes = useMemo(() => notes ?? [], [notes]);
 
+  const rawDayNotes = useMemo(
+    () =>
+      allNotes
+        .filter((n) => sameDay(new Date(n.createdAt), cursor))
+        .sort((a, b) => a.createdAt - b.createdAt),
+    [allNotes, cursor]
+  );
+
+  const rawImportantNotes = useMemo(
+    () => allNotes.filter((n) => n.important).sort((a, b) => b.createdAt - a.createdAt),
+    [allNotes]
+  );
+
+  const activeNoteIds = useMemo(() => {
+    const visibleNotes =
+      view === 'day' ? rawDayNotes : view === 'important' ? rawImportantNotes : [];
+    const ids = visibleNotes
+      .filter((n) => !n.isLocked && (!n.important || unlocked) && n.photoIds.length > 0)
+      .map((n) => n._id);
+    if (
+      editNote &&
+      !editNote.isLocked &&
+      (!editNote.important || unlocked) &&
+      editNote.photoIds.length > 0
+    ) {
+      ids.push(editNote._id);
+    }
+    return Array.from(new Set(ids));
+  }, [view, rawDayNotes, rawImportantNotes, editNote, unlocked]);
+
+  const photoUrlMap = (useQuery(
+    api.notes.getPhotoUrls,
+    activeNoteIds.length
+      ? {
+          noteIds: activeNoteIds as any,
+          pinHash: activePinHash ?? undefined,
+        }
+      : 'skip'
+  ) ?? {}) as Record<string, string>;
+
+  const dayNotes = useMemo(() => {
+    return rawDayNotes.map((n) => ({
+      ...n,
+      photoUrls: n.photoIds
+        .map((id) => photoUrlMap[id])
+        .filter((u): u is string => Boolean(u)),
+    }));
+  }, [rawDayNotes, photoUrlMap]);
+
+  const importantNotes = useMemo(() => {
+    return rawImportantNotes.map((n) => ({
+      ...n,
+      photoUrls: n.photoIds
+        .map((id) => photoUrlMap[id])
+        .filter((u): u is string => Boolean(u)),
+    }));
+  }, [rawImportantNotes, photoUrlMap]);
+
+  const activeEditNote = useMemo(() => {
+    if (!editNote) return null;
+    return {
+      ...editNote,
+      photoUrls: editNote.photoIds
+        .map((id) => photoUrlMap[id])
+        .filter((u): u is string => Boolean(u)),
+    };
+  }, [editNote, photoUrlMap]);
+
   const shift = useCallback(
     (d: number) => {
       setCursor((c) => {
@@ -301,14 +369,6 @@ export default function HomeScreen() {
   if (!isSignedIn) {
     return <AuthView />;
   }
-
-  const dayNotes = allNotes
-    .filter((n) => sameDay(new Date(n.createdAt), cursor))
-    .sort((a, b) => a.createdAt - b.createdAt);
-
-  const importantNotes = allNotes
-    .filter((n) => n.important)
-    .sort((a, b) => b.createdAt - a.createdAt);
 
   const offToday = !(sameDay(cursor, new Date()) && view === 'day');
 
@@ -523,7 +583,7 @@ export default function HomeScreen() {
       {/* Note Compose / Edit Sheet */}
       <NoteSheet
         visible={sheetOpen}
-        editNote={editNote}
+        editNote={activeEditNote}
         cursor={cursor}
         onClose={() => setSheetOpen(false)}
         onSave={handleSaveNote}
