@@ -34,9 +34,12 @@ export function AuthView() {
     setLoading(true);
     setError('');
     try {
+      const redirectUrl = AuthSession.makeRedirectUri({
+        path: 'sso-callback',
+      });
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy: 'oauth_google',
-        redirectUrl: AuthSession.makeRedirectUri(),
+        redirectUrl,
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
