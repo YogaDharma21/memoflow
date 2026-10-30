@@ -65,23 +65,56 @@ export function NoteSheet({
   }, [editNote, visible]);
 
   const onPickPhotos = async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsMultipleSelection: true,
-      quality: 0.82,
-    });
-    if (!res.canceled && res.assets) {
-      const added: DraftPhoto[] = await Promise.all(
-        res.assets.map(async (a) => {
-          const compressed = await compressMobileImage(a, 2048, 0.82);
-          return {
-            kind: 'new',
-            uri: compressed.uri,
-            mimeType: compressed.mimeType,
-          };
-        })
-      );
-      setDraftPhotos((prev) => [...prev, ...added]);
+    try {
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        quality: 0.82,
+      });
+      if (!res.canceled && res.assets) {
+        const added: DraftPhoto[] = await Promise.all(
+          res.assets.map(async (a) => {
+            const compressed = await compressMobileImage(a, 2048, 0.82);
+            return {
+              kind: 'new',
+              uri: compressed.uri,
+              mimeType: compressed.mimeType,
+            };
+          })
+        );
+        setDraftPhotos((prev) => [...prev, ...added]);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Could not pick photos');
+    }
+  };
+
+  const onTakePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Camera access is required to take photos.');
+        return;
+      }
+      const res = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 0.82,
+      });
+      if (!res.canceled && res.assets) {
+        const added: DraftPhoto[] = await Promise.all(
+          res.assets.map(async (a) => {
+            const compressed = await compressMobileImage(a, 2048, 0.82);
+            return {
+              kind: 'new',
+              uri: compressed.uri,
+              mimeType: compressed.mimeType,
+            };
+          })
+        );
+        setDraftPhotos((prev) => [...prev, ...added]);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Could not capture photo');
     }
   };
 
@@ -198,15 +231,27 @@ export function NoteSheet({
             </ScrollView>
           )}
 
-          <TouchableOpacity
-            style={styles.addPhotosButton}
-            onPress={onPickPhotos}
-          >
-            <Feather name="image" size={16} color={colors.textSecondary} />
-            <Text style={[styles.addPhotosText, { color: colors.textSecondary }]}>
-              {draftPhotos.length ? `${draftPhotos.length} photos` : 'Photos'}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={onTakePhoto}
+            >
+              <Feather name="camera" size={16} color={colors.textSecondary} />
+              <Text style={[styles.actionButtonText, { color: colors.textSecondary }]}>
+                Camera
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={onPickPhotos}
+            >
+              <Feather name="image" size={16} color={colors.textSecondary} />
+              <Text style={[styles.actionButtonText, { color: colors.textSecondary }]}>
+                {draftPhotos.length ? `${draftPhotos.length} photos` : 'Photos'}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity
             style={[styles.saveButton, { backgroundColor: colors.primary }]}
@@ -295,13 +340,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  addPhotosButton: {
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    marginTop: Spacing.two,
+  },
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.one,
-    marginTop: Spacing.two,
   },
-  addPhotosText: {
+  actionButtonText: {
     fontSize: 13,
     fontWeight: '600',
   },
