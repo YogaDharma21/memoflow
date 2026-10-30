@@ -14,8 +14,6 @@ import * as AuthSession from 'expo-auth-session';
 import { FontAwesome } from '@expo/vector-icons';
 import { Colors, Spacing } from '@/constants/theme';
 
-WebBrowser.maybeCompleteAuthSession();
-
 export function AuthView() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
