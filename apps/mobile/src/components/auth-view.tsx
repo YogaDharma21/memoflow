@@ -8,6 +8,7 @@ import {
   Platform,
   useColorScheme,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSSO } from '@clerk/expo';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -52,7 +53,10 @@ export function AuthView() {
   }, [startSSOFlow, router]);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['top', 'bottom', 'left', 'right']}
+    >
       <View
         style={[
           styles.card,
@@ -86,7 +90,7 @@ export function AuthView() {
           )}
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 

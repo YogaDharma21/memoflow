@@ -4,12 +4,12 @@ import {
   Text,
   TouchableOpacity,
   View,
-  SafeAreaView,
   ActivityIndicator,
   useColorScheme,
   Alert,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth, useUser } from '@clerk/expo';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '@workspace/convex/api';
@@ -29,6 +29,7 @@ import { NoteSheet } from '@/components/note-sheet';
 import { PinDialog } from '@/components/pin-dialog';
 import { SearchDialog } from '@/components/search-dialog';
 import { PhotoViewer } from '@/components/photo-viewer';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MONTHS_FULL = [
@@ -57,6 +58,7 @@ export default function HomeScreen() {
   const [activePinHash, setActivePinHash] = useState<string | null>(null);
   const activePinHashRef = useRef<string | null>(null);
   const [unlocked, setUnlocked] = useState(false);
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
 
   const notes = useQuery(
     api.notes.listMine,
@@ -450,20 +452,16 @@ export default function HomeScreen() {
   };
 
   const handleSignOut = () => {
-    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign out',
-        style: 'destructive',
-        onPress: async () => {
-          activePinHashRef.current = null;
-          setActivePinHash(null);
-          setUnlocked(false);
-          if (userId) await clearCachedPinHash(userId);
-          signOut();
-        },
-      },
-    ]);
+    setConfirmSignOut(true);
+  };
+
+  const onConfirmSignOut = async () => {
+    setConfirmSignOut(false);
+    activePinHashRef.current = null;
+    setActivePinHash(null);
+    setUnlocked(false);
+    if (userId) await clearCachedPinHash(userId);
+    signOut();
   };
 
   if (!isLoaded) {
@@ -490,7 +488,10 @@ export default function HomeScreen() {
       : `Important · ${importantNotes.length}`;
 
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.root, { backgroundColor: colors.background }]}
+      edges={['top', 'bottom', 'left', 'right']}
+    >
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <View style={styles.topRow}>
@@ -801,6 +802,18 @@ export default function HomeScreen() {
           onNav={(i) => setViewer((v) => (v ? { ...v, index: i } : v))}
         />
       )}
+
+      {/* Sign Out Confirmation Dialog */}
+      <ConfirmDialog
+        visible={confirmSignOut}
+        title="Sign out"
+        message="Are you sure you want to sign out?"
+        confirmText="Sign out"
+        cancelText="Cancel"
+        isDestructive
+        onCancel={() => setConfirmSignOut(false)}
+        onConfirm={onConfirmSignOut}
+      />
     </SafeAreaView>
   );
 }
