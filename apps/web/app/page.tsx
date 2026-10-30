@@ -151,6 +151,17 @@ export default function Page() {
   const fileRef = useRef<HTMLInputElement>(null)
   const replaceIdx = useRef(-1)
   const blobUrlsRef = useRef<Set<string>>(new Set())
+  const revokeBlobUrl = useCallback((url: string) => {
+    if (blobUrlsRef.current.has(url)) {
+      URL.revokeObjectURL(url)
+      blobUrlsRef.current.delete(url)
+    }
+  }, [])
+
+  const revokeAllBlobs = useCallback(() => {
+    blobUrlsRef.current.forEach((url) => URL.revokeObjectURL(url))
+    blobUrlsRef.current.clear()
+  }, [])
   const touchX = useRef(0)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -253,18 +264,30 @@ export default function Page() {
     setView(v)
   }, [])
 
-  // Arrow keys shift cursor, skipped while typing or viewer/PIN open.
+  const openNew = useCallback(() => {
+    revokeAllBlobs()
+    setEditId(null)
+    setDraftBody("")
+    setDraftPhotos([])
+    setSheetOpen(true)
+  }, [revokeAllBlobs])
+
+  // Arrow keys shift cursor and 'N' opens composer, skipped while typing or overlays open.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (viewer || pinOpen || sheetOpen || searchOpen) return
       const t = document.activeElement
-      if (t && /INPUT|TEXTAREA/.test(t.tagName)) return
+      if (t && (/INPUT|TEXTAREA/.test(t.tagName) || (t as HTMLElement).isContentEditable)) return
       if (e.key === "ArrowRight") shift(1)
       if (e.key === "ArrowLeft") shift(-1)
+      if (e.key.toLowerCase() === "n" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        e.preventDefault()
+        openNew()
+      }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [shift, viewer, pinOpen, sheetOpen, searchOpen])
+  }, [shift, viewer, pinOpen, sheetOpen, searchOpen, openNew])
 
   // Search shortcuts: '/' or Cmd+K / Ctrl+K opens search dialog.
   useEffect(() => {
@@ -382,26 +405,6 @@ export default function Page() {
       important: !note.important,
       pinHash: activePinHash ?? undefined,
     })
-  }
-
-  const revokeBlobUrl = useCallback((url: string) => {
-    if (blobUrlsRef.current.has(url)) {
-      URL.revokeObjectURL(url)
-      blobUrlsRef.current.delete(url)
-    }
-  }, [])
-
-  const revokeAllBlobs = useCallback(() => {
-    blobUrlsRef.current.forEach((url) => URL.revokeObjectURL(url))
-    blobUrlsRef.current.clear()
-  }, [])
-
-  const openNew = () => {
-    revokeAllBlobs()
-    setEditId(null)
-    setDraftBody("")
-    setDraftPhotos([])
-    setSheetOpen(true)
   }
 
   const openEdit = async (note: Note) => {
@@ -789,15 +792,30 @@ export default function Page() {
       </div>
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent>
+        <SheetContent
+          onKeyDown={(e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+              e.preventDefault()
+              void saveNote()
+            }
+          }}
+        >
           <SheetTitle className="text-[13px] font-bold text-muted-foreground">
             {editId ? "Edit note" : "New note"}
           </SheetTitle>
           <textarea
+            autoFocus
             className="mt-3 min-h-24 w-full rounded-xl border border-border bg-card p-3 text-[15px] outline-none"
             placeholder="type a note"
             value={draftBody}
             onChange={(e) => setDraftBody(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                e.preventDefault()
+                e.stopPropagation()
+                void saveNote()
+              }
+            }}
           />
           <input
             ref={fileRef}
