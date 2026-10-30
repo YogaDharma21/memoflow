@@ -478,11 +478,9 @@ export default function Page() {
   }
 
   const uploadDrafts = async (): Promise<string[]> => {
-    const ids: string[] = []
-    for (const p of draftPhotos) {
-      if (p.kind === "stored") {
-        ids.push(p.storageId)
-      } else {
+    return Promise.all(
+      draftPhotos.map(async (p) => {
+        if (p.kind === "stored") return p.storageId
         const url = (await getUploadUrl({})) as string
         const res = await fetch(url, {
           method: "POST",
@@ -491,10 +489,9 @@ export default function Page() {
         })
         if (!res.ok) throw new Error("Upload failed")
         const { storageId } = (await res.json()) as { storageId: string }
-        ids.push(storageId)
-      }
-    }
-    return ids
+        return storageId
+      })
+    )
   }
 
   useEffect(() => {
