@@ -9,9 +9,9 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
+  Linking,
   useColorScheme,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -47,8 +47,16 @@ export function NoteSheet({
   const [body, setBody] = useState('');
   const [draftPhotos, setDraftPhotos] = useState<DraftPhoto[]>([]);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [showPermissionSettings, setShowPermissionSettings] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
+    setError('');
+    setShowPermissionSettings(false);
+    setConfirmDelete(false);
+    setDeleting(false);
     if (editNote) {
       setBody(editNote.body);
       setDraftPhotos(
@@ -65,6 +73,8 @@ export function NoteSheet({
   }, [editNote, visible]);
 
   const onPickPhotos = async () => {
+    setError('');
+    setShowPermissionSettings(false);
     try {
       const res = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
@@ -85,15 +95,27 @@ export function NoteSheet({
         setDraftPhotos((prev) => [...prev, ...added]);
       }
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Could not pick photos');
+      setError(err?.message || 'Could not pick photos');
     }
   };
 
   const onTakePhoto = async () => {
+    setError('');
+    setShowPermissionSettings(false);
     try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      let { status, canAskAgain } = await ImagePicker.getCameraPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission required', 'Camera access is required to take photos.');
+        const req = await ImagePicker.requestCameraPermissionsAsync();
+        status = req.status;
+        canAskAgain = req.canAskAgain;
+      }
+      if (status !== 'granted') {
+        if (!canAskAgain) {
+          setError('Camera permission denied in system settings.');
+          setShowPermissionSettings(true);
+        } else {
+          setError('Camera access is required to take photos.');
+        }
         return;
       }
       const res = await ImagePicker.launchCameraAsync({
@@ -114,7 +136,7 @@ export function NoteSheet({
         setDraftPhotos((prev) => [...prev, ...added]);
       }
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Could not capture photo');
+      setError(err?.message || 'Could not capture photo');
     }
   };
 
@@ -126,37 +148,34 @@ export function NoteSheet({
     const trimmed = body.trim();
     if ((!trimmed && !draftPhotos.length) || saving) return;
     setSaving(true);
+    setError('');
+    setShowPermissionSettings(false);
     try {
       const ok = await onSave(trimmed, draftPhotos, editNote ? editNote._id : null);
       if (ok !== false) {
         onClose();
       }
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Could not save note');
+      setError(err?.message || 'Could not save note');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = () => {
-    if (!editNote) return;
-    Alert.alert('Delete note', 'Are you sure you want to delete this note?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            const ok = await onDelete(editNote._id);
-            if (ok !== false) {
-              onClose();
-            }
-          } catch (err: any) {
-            Alert.alert('Error', err?.message || 'Could not delete note');
-          }
-        },
-      },
-    ]);
+  const executeDelete = async () => {
+    if (!editNote || deleting) return;
+    setDeleting(true);
+    setError('');
+    try {
+      const ok = await onDelete(editNote._id);
+      if (ok !== false) {
+        onClose();
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Could not delete note');
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
   };
 
   return (
@@ -253,6 +272,38 @@ export function NoteSheet({
             </TouchableOpacity>
           </View>
 
+          {Boolean(error) && (
+            <View
+              style={[
+                styles.errorBox,
+                {
+                  borderColor: colors.destructive,
+                  backgroundColor: colors.surfaceInset,
+                },
+              ]}
+            >
+              <Text style={[styles.errorText, { color: colors.destructive }]}>
+                {error}
+              </Text>
+              {showPermissionSettings && (
+                <TouchableOpacity
+                  style={[styles.settingsBtn, { backgroundColor: colors.destructive }]}
+                  onPress={() => void Linking.openSettings()}
+                  hitSlop={6}
+                >
+                  <Text
+                    style={[
+                      styles.settingsBtnText,
+                      { color: colors.primaryForeground },
+                    ]}
+                  >
+                    Settings
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
           <TouchableOpacity
             style={[styles.saveButton, { backgroundColor: colors.primary }]}
             onPress={handleSave}
@@ -267,13 +318,69 @@ export function NoteSheet({
             )}
           </TouchableOpacity>
 
-          {Boolean(editNote) && (
-            <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-              <Text style={[styles.deleteText, { color: colors.destructive }]}>
-                Delete note
-              </Text>
-            </TouchableOpacity>
-          )}
+          {Boolean(editNote) &&
+            (confirmDelete ? (
+              <View
+                style={[
+                  styles.deleteConfirmBox,
+                  {
+                    backgroundColor: colors.backgroundElement,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.deleteConfirmText, { color: colors.text }]}>
+                  Delete this note?
+                </Text>
+                <View style={styles.deleteConfirmActions}>
+                  <TouchableOpacity
+                    style={[
+                      styles.confirmBtn,
+                      styles.cancelBtn,
+                      { borderColor: colors.border },
+                    ]}
+                    onPress={() => setConfirmDelete(false)}
+                    disabled={deleting}
+                  >
+                    <Text
+                      style={[styles.confirmBtnText, { color: colors.textSecondary }]}
+                    >
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.confirmBtn, { backgroundColor: colors.destructive }]}
+                    onPress={executeDelete}
+                    disabled={deleting}
+                  >
+                    {deleting ? (
+                      <ActivityIndicator
+                        color={colors.primaryForeground}
+                        size="small"
+                      />
+                    ) : (
+                      <Text
+                        style={[
+                          styles.confirmBtnText,
+                          { color: colors.primaryForeground },
+                        ]}
+                      >
+                        Delete
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={() => setConfirmDelete(true)}
+              >
+                <Text style={[styles.deleteText, { color: colors.destructive }]}>
+                  Delete note
+                </Text>
+              </TouchableOpacity>
+            ))}
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -355,6 +462,32 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: Spacing.two,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '500',
+  },
+  settingsBtn: {
+    paddingHorizontal: Spacing.two,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  settingsBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
   saveButton: {
     height: 44,
     borderRadius: 12,
@@ -372,6 +505,38 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
   },
   deleteText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  deleteConfirmBox: {
+    marginTop: Spacing.two,
+    padding: Spacing.three,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  deleteConfirmText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  deleteConfirmActions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    width: '100%',
+  },
+  confirmBtn: {
+    flex: 1,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelBtn: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+  },
+  confirmBtnText: {
     fontSize: 13,
     fontWeight: '600',
   },
