@@ -8,19 +8,16 @@ import {
   Platform,
   useColorScheme,
 } from 'react-native';
-import { useOAuth } from '@clerk/expo';
+import { useSSO } from '@clerk/expo';
 import * as WebBrowser from 'expo-web-browser';
-import * as Linking from 'expo-linking';
 import { FontAwesome } from '@expo/vector-icons';
 import { Colors, Spacing } from '@/constants/theme';
-
-WebBrowser.maybeCompleteAuthSession();
 
 export function AuthView() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
 
-  const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
+  const { startSSOFlow } = useSSO();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -36,9 +33,8 @@ export function AuthView() {
     setLoading(true);
     setError('');
     try {
-      const redirectUrl = Linking.createURL('/', { scheme: 'mobile' });
-      const { createdSessionId, setActive } = await startOAuthFlow({
-        redirectUrl,
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy: 'oauth_google',
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
@@ -48,7 +44,7 @@ export function AuthView() {
     } finally {
       setLoading(false);
     }
-  }, [startOAuthFlow]);
+  }, [startSSOFlow]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
