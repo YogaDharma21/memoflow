@@ -9,6 +9,7 @@ export type Note = {
   createdAt: number;
   ownerId: string;
   isLocked?: boolean;
+  tags?: string[];
 };
 
 export type DraftPhoto =

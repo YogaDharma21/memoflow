@@ -16,9 +16,10 @@ type Props = {
   onOpen: (n: Note) => void;
   onViewer: (list: string[], i: number) => void;
   unlocked?: boolean;
+  onSelectTag?: (tag: string) => void;
 };
 
-export function ImportantView({ notes, onStar, onOpen, onViewer, unlocked }: Props) {
+export function ImportantView({ notes, onStar, onOpen, onViewer, unlocked, onSelectTag }: Props) {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
 
@@ -42,6 +43,7 @@ export function ImportantView({ notes, onStar, onOpen, onViewer, unlocked }: Pro
           onOpen={onOpen}
           onViewer={onViewer}
           unlocked={unlocked}
+          onSelectTag={onSelectTag}
         />
       ))}
     </ScrollView>

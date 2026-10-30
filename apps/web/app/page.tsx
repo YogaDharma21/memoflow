@@ -41,6 +41,7 @@ type Note = {
   createdAt: number
   ownerId: string
   isLocked?: boolean
+  tags?: string[]
 }
 
 type DraftPhoto =
@@ -245,30 +246,56 @@ export default function Page() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const [selectedTag, setSelectedTag] = useState<string | null>(null)
 
   const all = useMemo(() => notes ?? [], [notes])
 
+  const activeTags = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const note of all) {
+      if (note.isLocked) continue
+      const tags = note.tags ?? []
+      for (const tag of tags) {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1)
+      }
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([tag]) => tag)
+  }, [all])
+
+  useEffect(() => {
+    if (selectedTag && !activeTags.includes(selectedTag)) {
+      setSelectedTag(null)
+    }
+  }, [activeTags, selectedTag])
+
+  const visibleNotes = useMemo(() => {
+    if (!selectedTag) return all
+    return all.filter((n) => !n.isLocked && n.tags?.includes(selectedTag))
+  }, [all, selectedTag])
+
   const dayNotesRaw = useMemo(
     () =>
-      all
+      visibleNotes
         .filter((n) => sameDay(new Date(n.createdAt), cursor))
         .sort((a, b) => a.createdAt - b.createdAt),
-    [all, cursor]
+    [visibleNotes, cursor]
   )
 
   const importantNotesRaw = useMemo(
-    () => all.filter((n) => n.important).sort((a, b) => b.createdAt - a.createdAt),
-    [all]
+    () => visibleNotes.filter((n) => n.important).sort((a, b) => b.createdAt - a.createdAt),
+    [visibleNotes]
   )
 
   const activeNoteIds = useMemo(() => {
-    const visibleNotes =
+    const visibleActive =
       view === "day"
         ? dayNotesRaw
         : view === "important"
           ? importantNotesRaw
           : []
-    const ids = visibleNotes
+    const ids = visibleActive
       .filter((n) => !n.isLocked && (!n.important || unlocked) && n.photoIds.length > 0)
       .map((n) => n._id)
     if (editId) {
@@ -321,7 +348,12 @@ export default function Page() {
     const q = searchQuery.trim().toLowerCase()
     if (!q) return []
     return all
-      .filter((n) => !n.isLocked && n.body.toLowerCase().includes(q))
+      .filter((n) => {
+        if (n.isLocked) return false
+        if (n.body.toLowerCase().includes(q)) return true
+        if (n.tags?.some((t) => t.toLowerCase().includes(q))) return true
+        return false
+      })
       .sort((a, b) => b.createdAt - a.createdAt)
   }, [all, searchQuery])
 
@@ -859,6 +891,35 @@ export default function Page() {
             )}
           </span>
         </div>
+        {activeTags.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pt-1 pb-2 text-xs no-scrollbar">
+            <button
+              onClick={() => setSelectedTag(null)}
+              className={`h-7 shrink-0 rounded-full px-3 text-[12px] font-medium transition-colors ${
+                selectedTag === null
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border/50 bg-secondary/40 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+              }`}
+            >
+              All
+            </button>
+            {activeTags.map((tag) => (
+              <button
+                key={tag}
+                onClick={() =>
+                  setSelectedTag((prev) => (prev === tag ? null : tag))
+                }
+                className={`h-7 shrink-0 rounded-full px-3 text-[12px] font-medium transition-colors ${
+                  selectedTag === tag
+                    ? "bg-primary font-semibold text-primary-foreground"
+                    : "border border-border/50 bg-secondary/40 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+                }`}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        )}
       </header>
 
       <main
@@ -884,12 +945,13 @@ export default function Page() {
                 onViewer={(l, i) => setViewer({ list: l, index: i })}
                 unlocked={unlocked}
                 onToggleTask={handleToggleTask}
+                onSelectTag={(t) => setSelectedTag(t)}
               />
             )}
             {view === "month" && (
               <MonthView
                 cursor={cursor}
-                notes={all}
+                notes={visibleNotes}
                 onDrill={(d) => drill("day", d)}
                 unlocked={unlocked}
               />
@@ -897,7 +959,7 @@ export default function Page() {
             {view === "year" && (
               <YearView
                 cursor={cursor}
-                notes={all}
+                notes={visibleNotes}
                 onDrill={(d) => drill("month", d)}
                 unlocked={unlocked}
               />
@@ -910,6 +972,7 @@ export default function Page() {
                 onViewer={(l, i) => setViewer({ list: l, index: i })}
                 unlocked={unlocked}
                 onToggleTask={handleToggleTask}
+                onSelectTag={(t) => setSelectedTag(t)}
               />
             )}
           </>
@@ -1127,8 +1190,28 @@ export default function Page() {
           </div>
           <div className="max-h-[60vh] overflow-y-auto p-2">
             {!searchQuery.trim() ? (
-              <div className="p-6 text-center text-xs text-muted-foreground">
-                Type to search notes
+              <div className="p-4">
+                {activeTags.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-medium tracking-[0.16em] uppercase text-muted-foreground">
+                      Tags
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {activeTags.map((tag) => (
+                        <button
+                          key={tag}
+                          onClick={() => setSearchQuery(tag)}
+                          className="rounded-full border border-border/50 bg-secondary/40 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="pt-3 text-center text-xs text-muted-foreground">
+                  Type to search notes
+                </div>
               </div>
             ) : matchingNotes.length === 0 ? (
               <div className="p-6 text-center text-xs text-muted-foreground">
@@ -1274,6 +1357,7 @@ function NoteCard({
   onViewer,
   unlocked,
   onToggleTask,
+  onSelectTag,
 }: {
   note: Note
   onStar: (n: Note) => void
@@ -1281,6 +1365,7 @@ function NoteCard({
   onViewer: (list: string[], i: number) => void
   unlocked: boolean
   onToggleTask?: (note: Note, taskIndex: number) => void
+  onSelectTag?: (tag: string) => void
 }) {
   const isLocked = Boolean(note.isLocked ?? (note.important && !unlocked))
   return (
@@ -1337,6 +1422,22 @@ function NoteCard({
             }}
           />
         ))}
+      {!isLocked && note.tags && note.tags.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {note.tags.map((t) => (
+            <span
+              key={t}
+              onClick={(e) => {
+                e.stopPropagation()
+                onSelectTag?.(t)
+              }}
+              className="cursor-pointer rounded-full border border-border/40 bg-surface-inset px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
       <small className="mt-1 block text-[11px] text-muted-foreground">
         {new Date(note.createdAt).toLocaleDateString([], {
           month: "short",
@@ -1363,6 +1464,7 @@ function DayRail({
   onViewer,
   unlocked,
   onToggleTask,
+  onSelectTag,
 }: {
   notes: Note[]
   cursor: Date
@@ -1371,6 +1473,7 @@ function DayRail({
   onViewer: (list: string[], i: number) => void
   unlocked: boolean
   onToggleTask?: (note: Note, taskIndex: number) => void
+  onSelectTag?: (tag: string) => void
 }) {
   const nowH = new Date().getHours()
   const isToday = sameDay(cursor, new Date())
@@ -1410,6 +1513,7 @@ function DayRail({
                 onViewer={onViewer}
                 unlocked={unlocked}
                 onToggleTask={onToggleTask}
+                onSelectTag={onSelectTag}
               />
             ))}
           </div>
@@ -1608,6 +1712,7 @@ function ImportantView({
   onViewer,
   unlocked,
   onToggleTask,
+  onSelectTag,
 }: {
   notes: Note[]
   onStar: (n: Note) => void
@@ -1615,6 +1720,7 @@ function ImportantView({
   onViewer: (list: string[], i: number) => void
   unlocked: boolean
   onToggleTask?: (note: Note, taskIndex: number) => void
+  onSelectTag?: (tag: string) => void
 }) {
   if (!notes.length)
     return (
@@ -1633,6 +1739,7 @@ function ImportantView({
           onViewer={onViewer}
           unlocked={unlocked}
           onToggleTask={onToggleTask}
+          onSelectTag={onSelectTag}
         />
       ))}
     </div>

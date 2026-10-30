@@ -1,6 +1,19 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+export function extractTags(body: string): string[] {
+  if (!body) return [];
+  const regex = /(?:^|[\s(\[{<])#([a-zA-Z0-9_\-]+)/g;
+  const tags = new Set<string>();
+  for (const match of body.matchAll(regex)) {
+    const tag = match[1]?.toLowerCase();
+    if (tag && /[a-zA-Z]/.test(tag)) {
+      tags.add(`#${tag}`);
+    }
+  }
+  return Array.from(tags);
+}
+
 async function requireOwnerId(ctx: any): Promise<string> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) throw new Error("Not signed in");
@@ -43,12 +56,14 @@ export const listMine = query({
 
     return notes.map((n: any) => {
       const locked = Boolean(n.important && !isUnlocked);
+      const tags = locked ? [] : (n.tags ?? extractTags(n.body));
       return {
         ...n,
         body: locked ? "" : n.body,
         photoIds: locked ? [] : n.photoIds,
         photoUrls: [],
         isLocked: locked,
+        tags,
       };
     });
   },
@@ -110,12 +125,14 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const ownerId = await requireOwnerId(ctx);
+    const tags = extractTags(args.body);
     return await ctx.db.insert("notes", {
       body: args.body,
       photoIds: args.photoIds,
       important: false,
       createdAt: args.createdAt,
       ownerId,
+      tags,
     });
   },
 });
@@ -140,7 +157,8 @@ export const update = mutation({
         throw new Error("Locked note: PIN required");
       }
     }
-    await ctx.db.patch(args.id, { body: args.body, photoIds: args.photoIds });
+    const tags = extractTags(args.body);
+    await ctx.db.patch(args.id, { body: args.body, photoIds: args.photoIds, tags });
     const nextIds = new Set(args.photoIds);
     for (const sid of note.photoIds ?? []) {
       if (!nextIds.has(sid)) {
