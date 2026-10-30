@@ -52,6 +52,7 @@ export default function HomeScreen() {
   const { user } = useUser();
 
   const [activePinHash, setActivePinHash] = useState<string | null>(null);
+  const activePinHashRef = useRef<string | null>(null);
   const [unlocked, setUnlocked] = useState(false);
 
   const notes = useQuery(
@@ -134,6 +135,7 @@ export default function HomeScreen() {
       }
       const hash = await hashPin(userId, pinValue);
       await setPinHash({ pinHash: hash });
+      activePinHashRef.current = hash;
       setActivePinHash(hash);
       setUnlocked(true);
       closePin(true);
@@ -142,6 +144,7 @@ export default function HomeScreen() {
     const hash = await hashPin(userId, pinValue);
     const ok = await verifyPin({ pinHash: hash });
     if (ok) {
+      activePinHashRef.current = hash;
       setActivePinHash(hash);
       setUnlocked(true);
       closePin(true);
@@ -151,7 +154,7 @@ export default function HomeScreen() {
   };
 
   const needPin = useCallback(async (): Promise<boolean> => {
-    if (unlocked) return true;
+    if (unlocked && activePinHashRef.current) return true;
     if (!settings?.hasPin) return askPin('set');
     return askPin('check');
   }, [unlocked, settings, askPin]);
@@ -165,12 +168,16 @@ export default function HomeScreen() {
   };
 
   const toggleStar = async (note: Note) => {
-    if ((note.isLocked || !note.important || !unlocked) && !(await needPin())) return;
-    await setImportant({
-      id: note._id as any,
-      important: !note.important,
-      pinHash: activePinHash ?? undefined,
-    });
+    try {
+      if ((note.isLocked || !note.important || !unlocked) && !(await needPin())) return;
+      await setImportant({
+        id: note._id as any,
+        important: !note.important,
+        pinHash: activePinHashRef.current ?? undefined,
+      });
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Could not update note');
+    }
   };
 
   const handleOpenNote = async (n: Note) => {
@@ -219,13 +226,25 @@ export default function HomeScreen() {
     draftPhotos: DraftPhoto[],
     editId: string | null
   ) => {
+    if (editId) {
+      const note =
+        allNotes.find((n) => n._id === editId) ??
+        (editNote?._id === editId ? editNote : null);
+      if (
+        (note?.important || note?.isLocked) &&
+        (!unlocked || !activePinHashRef.current)
+      ) {
+        const ok = await needPin();
+        if (!ok) return false;
+      }
+    }
     const photoIds = (await uploadDrafts(draftPhotos)) as any;
     if (editId) {
       await updateNote({
         id: editId as any,
         body,
         photoIds,
-        pinHash: activePinHash ?? undefined,
+        pinHash: activePinHashRef.current ?? undefined,
       });
     } else {
       const base = sameDay(cursor, new Date())
@@ -233,19 +252,40 @@ export default function HomeScreen() {
         : startOfDay(cursor).getTime() + new Date().getHours() * 3600000;
       await createNote({ body, photoIds, createdAt: base });
     }
+    return true;
   };
 
   const handleDeleteNote = async (id: string) => {
+    const note =
+      allNotes.find((n) => n._id === id) ??
+      (editNote?._id === id ? editNote : null);
+    if (
+      (note?.important || note?.isLocked) &&
+      (!unlocked || !activePinHashRef.current)
+    ) {
+      const ok = await needPin();
+      if (!ok) return false;
+    }
     await removeNote({
       id: id as any,
-      pinHash: activePinHash ?? undefined,
+      pinHash: activePinHashRef.current ?? undefined,
     });
+    return true;
   };
 
   const handleSignOut = () => {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: () => signOut() },
+      {
+        text: 'Sign out',
+        style: 'destructive',
+        onPress: () => {
+          activePinHashRef.current = null;
+          setActivePinHash(null);
+          setUnlocked(false);
+          signOut();
+        },
+      },
     ]);
   };
 
@@ -375,6 +415,7 @@ export default function HomeScreen() {
               <TouchableOpacity
                 style={[styles.iconButton, { backgroundColor: colors.backgroundElement }]}
                 onPress={() => {
+                  activePinHashRef.current = null;
                   setActivePinHash(null);
                   setUnlocked(false);
                   setView('day');
