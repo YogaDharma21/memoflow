@@ -7,7 +7,7 @@
     "dev": "turbo dev",
     "lint": "turbo lint",
     "format": "turbo format",
-    "test": "node test/blob-url-revocation.test.mjs && node test/parallel-upload.test.mjs && node test/optimistic-mutations.test.mjs && node test/highlight.test.mjs && node --loader ./test/resolver.mjs --experimental-strip-types --disable-warning=ExperimentalWarning test/pin-protection.test.mjs && node --loader ./test/resolver.mjs --experimental-strip-types --disable-warning=ExperimentalWarning test/image-compression.test.mjs && node --loader ./test/resolver.mjs --experimental-strip-types --disable-warning=ExperimentalWarning test/export.test.mjs",
+    "test": "node test/blob-url-revocation.test.mjs && node test/parallel-upload.test.mjs && node test/optimistic-mutations.test.mjs && node test/highlight.test.mjs && node test/markdown.test.mjs && node --loader ./test/resolver.mjs --experimental-strip-types --disable-warning=ExperimentalWarning test/pin-protection.test.mjs && node --loader ./test/resolver.mjs --experimental-strip-types --disable-warning=ExperimentalWarning test/image-compression.test.mjs && node --loader ./test/resolver.mjs --experimental-strip-types --disable-warning=ExperimentalWarning test/export.test.mjs",
     "typecheck": "turbo typecheck"
   },
   "devDependencies": {
