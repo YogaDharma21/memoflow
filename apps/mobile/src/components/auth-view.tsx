@@ -9,13 +9,17 @@ import {
   useColorScheme,
 } from 'react-native';
 import { useSSO } from '@clerk/expo';
+import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { FontAwesome } from '@expo/vector-icons';
 import { Colors, Spacing } from '@/constants/theme';
 
+WebBrowser.maybeCompleteAuthSession();
+
 export function AuthView() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
+  const router = useRouter();
 
   const { startSSOFlow } = useSSO();
   const [loading, setLoading] = useState(false);
@@ -38,13 +42,14 @@ export function AuthView() {
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
+        router.replace('/');
       }
     } catch (err: any) {
       setError(err?.errors?.[0]?.message || err?.message || 'Google sign in failed');
     } finally {
       setLoading(false);
     }
-  }, [startSSOFlow]);
+  }, [startSSOFlow, router]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
