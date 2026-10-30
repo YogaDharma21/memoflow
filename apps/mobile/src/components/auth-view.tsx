@@ -8,16 +8,19 @@ import {
   Platform,
   useColorScheme,
 } from 'react-native';
-import { useSSO } from '@clerk/expo';
+import { useOAuth } from '@clerk/expo';
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { FontAwesome } from '@expo/vector-icons';
 import { Colors, Spacing } from '@/constants/theme';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export function AuthView() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
 
-  const { startSSOFlow } = useSSO();
+  const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -33,8 +36,9 @@ export function AuthView() {
     setLoading(true);
     setError('');
     try {
-      const { createdSessionId, setActive } = await startSSOFlow({
-        strategy: 'oauth_google',
+      const redirectUrl = Linking.createURL('/', { scheme: 'mobile' });
+      const { createdSessionId, setActive } = await startOAuthFlow({
+        redirectUrl,
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
@@ -44,7 +48,7 @@ export function AuthView() {
     } finally {
       setLoading(false);
     }
-  }, [startSSOFlow]);
+  }, [startOAuthFlow]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -98,18 +102,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 24,
     borderWidth: 1,
-    padding: Spacing.four,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.five,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 28,
+    fontWeight: '700',
     letterSpacing: -0.5,
     marginBottom: Spacing.four,
   },
+  error: {
+    fontSize: 13,
+    marginBottom: Spacing.three,
+    textAlign: 'center',
+  },
   button: {
     width: '100%',
-    height: 44,
-    borderRadius: 12,
+    height: 48,
+    borderRadius: 999,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -120,12 +130,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   buttonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
-  },
-  error: {
-    fontSize: 12,
-    marginBottom: Spacing.three,
-    textAlign: 'center',
   },
 });
