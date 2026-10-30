@@ -1,0 +1,31 @@
+diff --git a/build/src/api/rest/cache/wrapFetchWithCache.js b/build/src/api/rest/cache/wrapFetchWithCache.js
+index daad31c8c31e9e3fefa4de61c325343c5fbdc35d..2ca3cd6def8a866414b465439cbf53739b3cb7c6 100644
+--- a/build/src/api/rest/cache/wrapFetchWithCache.js
++++ b/build/src/api/rest/cache/wrapFetchWithCache.js
+@@ -36,11 +36,22 @@ function wrapFetchWithCache(fetch, cache) {
+             if (!response.ok || !response.body) {
+                 return response;
+             }
++            // Clone before caching so the original response body is never consumed if caching fails
++            let responseToCache = response;
++            try {
++                if (typeof response.clone === 'function') {
++                    responseToCache = response.clone();
++                }
++            } catch {}
+             // Cache the response
+-            cachedResponse = await cache.set(cacheKey, {
+-                body: response.body,
+-                info: (0, _ResponseCache.getResponseInfo)(response)
+-            });
++            try {
++                cachedResponse = await cache.set(cacheKey, {
++                    body: responseToCache.body,
++                    info: (0, _ResponseCache.getResponseInfo)(responseToCache)
++                });
++            } catch (error) {
++                debug(`Failed to cache response for: ${url}`, error);
++            }
+             // Warn through debug logs that caching failed
+             if (!cachedResponse) {
+                 debug(`Failed to cache response for: ${url}`);
