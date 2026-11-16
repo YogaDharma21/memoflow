@@ -1,19 +1,23 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  SafeAreaView,
   ActivityIndicator,
   useColorScheme,
   Alert,
+  ScrollView,
 } from 'react-native';
-import { useAuth, useUser } from '@clerk/clerk-expo';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth, useUser } from '@clerk/expo';
 import { useMutation, useQuery } from 'convex/react';
+import { api } from '@workspace/convex/api';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { Colors, Spacing } from '@/constants/theme';
 import { hashPin } from '@/lib/pin';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { setCachedPinHash, clearCachedPinHash } from '@/lib/biometrics';
 import { DraftPhoto, Note, View as ViewMode } from '@/types';
 
 import { AuthView } from '@/components/auth-view';
@@ -25,6 +29,7 @@ import { NoteSheet } from '@/components/note-sheet';
 import { PinDialog } from '@/components/pin-dialog';
 import { SearchDialog } from '@/components/search-dialog';
 import { PhotoViewer } from '@/components/photo-viewer';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MONTHS_FULL = [
@@ -50,22 +55,71 @@ export default function HomeScreen() {
   const { isLoaded, isSignedIn, userId, signOut } = useAuth();
   const { user } = useUser();
 
-  const notes = useQuery('notes:listMine' as any, {}) as Note[] | undefined;
-  const settings = useQuery('userSettings:getMe' as any, {}) as
-    | { pinHash?: string }
+  const [activePinHash, setActivePinHash] = useState<string | null>(null);
+  const activePinHashRef = useRef<string | null>(null);
+  const [unlocked, setUnlocked] = useState(false);
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
+
+  const notes = useQuery(
+    api.notes.listMine,
+    activePinHash ? { pinHash: activePinHash } : {}
+  ) as Note[] | undefined;
+  const settings = useQuery(api.userSettings.getMe, {}) as
+    | { hasPin?: boolean }
     | null
     | undefined;
 
-  const createNote = useMutation('notes:create' as any);
-  const updateNote = useMutation('notes:update' as any);
-  const removeNote = useMutation('notes:remove' as any);
-  const setImportant = useMutation('notes:setImportant' as any);
-  const getUploadUrl = useMutation('notes:generateUploadUrl' as any);
-  const setPinHash = useMutation('userSettings:setPinHash' as any);
+  const createNote = useMutation(api.notes.create);
+  const updateNote = useMutation(api.notes.update);
+  const removeNote = useMutation(api.notes.remove).withOptimisticUpdate(
+    (localStore, { id, pinHash }) => {
+      const queryArgsList: Array<{ pinHash?: string }> = [{}];
+      if (activePinHash) queryArgsList.push({ pinHash: activePinHash });
+      if (pinHash && pinHash !== activePinHash) queryArgsList.push({ pinHash });
+      for (const qArgs of queryArgsList) {
+        const current = localStore.getQuery(api.notes.listMine, qArgs);
+        if (Array.isArray(current)) {
+          localStore.setQuery(
+            api.notes.listMine,
+            qArgs,
+            current.filter((n) => n._id !== id)
+          );
+        }
+      }
+    }
+  );
+  const setImportant = useMutation(api.notes.setImportant).withOptimisticUpdate(
+    (localStore, { id, important, pinHash }) => {
+      const queryArgsList: Array<{ pinHash?: string }> = [{}];
+      if (activePinHash) queryArgsList.push({ pinHash: activePinHash });
+      if (pinHash && pinHash !== activePinHash) queryArgsList.push({ pinHash });
+      for (const qArgs of queryArgsList) {
+        const current = localStore.getQuery(api.notes.listMine, qArgs);
+        if (Array.isArray(current)) {
+          localStore.setQuery(
+            api.notes.listMine,
+            qArgs,
+            current.map((n) =>
+              n._id === id
+                ? {
+                    ...n,
+                    important,
+                    isLocked: important ? Boolean(n.isLocked && !unlocked) : false,
+                  }
+                : n
+            )
+          );
+        }
+      }
+    }
+  );
+  const getUploadUrl = useMutation(api.notes.generateUploadUrl);
+  const setPinHash = useMutation(api.userSettings.setPinHash);
+  const verifyPin = useMutation(api.userSettings.verifyPin);
+  const removePin = useMutation(api.userSettings.removePin);
 
   const [view, setView] = useState<ViewMode>('day');
   const [cursor, setCursor] = useState<Date>(() => new Date());
-  const [unlocked, setUnlocked] = useState(false);
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editNote, setEditNote] = useState<Note | null>(null);
@@ -77,8 +131,102 @@ export default function HomeScreen() {
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [viewer, setViewer] = useState<{ list: string[]; index: number } | null>(null);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
   const allNotes = useMemo(() => notes ?? [], [notes]);
+
+  const activeTags = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const note of allNotes) {
+      if (note.isLocked || (note.important && !unlocked)) continue;
+      const tags = note.tags ?? [];
+      for (const tag of tags) {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1);
+      }
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([tag]) => tag);
+  }, [allNotes, unlocked]);
+
+  useEffect(() => {
+    if (selectedTag && !activeTags.includes(selectedTag)) {
+      setSelectedTag(null);
+    }
+  }, [activeTags, selectedTag]);
+
+  const visibleNotes = useMemo(() => {
+    if (!selectedTag) return allNotes;
+    return allNotes.filter((n) => !n.isLocked && n.tags?.includes(selectedTag));
+  }, [allNotes, selectedTag]);
+
+  const rawDayNotes = useMemo(
+    () =>
+      visibleNotes
+        .filter((n) => sameDay(new Date(n.createdAt), cursor))
+        .sort((a, b) => a.createdAt - b.createdAt),
+    [visibleNotes, cursor]
+  );
+
+  const rawImportantNotes = useMemo(
+    () => visibleNotes.filter((n) => n.important).sort((a, b) => b.createdAt - a.createdAt),
+    [visibleNotes]
+  );
+
+  const activeNoteIds = useMemo(() => {
+    const visibleActive =
+      view === 'day' ? rawDayNotes : view === 'important' ? rawImportantNotes : [];
+    const ids = visibleActive
+      .filter((n) => !n.isLocked && (!n.important || unlocked) && n.photoIds.length > 0)
+      .map((n) => n._id);
+    if (
+      editNote &&
+      !editNote.isLocked &&
+      (!editNote.important || unlocked) &&
+      editNote.photoIds.length > 0
+    ) {
+      ids.push(editNote._id);
+    }
+    return Array.from(new Set(ids));
+  }, [view, rawDayNotes, rawImportantNotes, editNote, unlocked]);
+
+  const photoUrlMap = (useQuery(
+    api.notes.getPhotoUrls,
+    activeNoteIds.length
+      ? {
+          noteIds: activeNoteIds as any,
+          pinHash: activePinHash ?? undefined,
+        }
+      : 'skip'
+  ) ?? {}) as Record<string, string>;
+
+  const dayNotes = useMemo(() => {
+    return rawDayNotes.map((n) => ({
+      ...n,
+      photoUrls: n.photoIds
+        .map((id) => photoUrlMap[id])
+        .filter((u): u is string => Boolean(u)),
+    }));
+  }, [rawDayNotes, photoUrlMap]);
+
+  const importantNotes = useMemo(() => {
+    return rawImportantNotes.map((n) => ({
+      ...n,
+      photoUrls: n.photoIds
+        .map((id) => photoUrlMap[id])
+        .filter((u): u is string => Boolean(u)),
+    }));
+  }, [rawImportantNotes, photoUrlMap]);
+
+  const activeEditNote = useMemo(() => {
+    if (!editNote) return null;
+    return {
+      ...editNote,
+      photoUrls: editNote.photoIds
+        .map((id) => photoUrlMap[id])
+        .filter((u): u is string => Boolean(u)),
+    };
+  }, [editNote, photoUrlMap]);
 
   const shift = useCallback(
     (d: number) => {
@@ -91,6 +239,31 @@ export default function HomeScreen() {
       });
     },
     [view]
+  );
+
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .enabled(view === 'day' || view === 'month')
+        .activeOffsetX([-20, 20])
+        .failOffsetY([-15, 15])
+        .runOnJS(true)
+        .onEnd((e) => {
+          const SWIPE_THRESHOLD = 50;
+          const VELOCITY_THRESHOLD = 500;
+          if (
+            e.translationX < -SWIPE_THRESHOLD ||
+            (e.translationX < -20 && e.velocityX < -VELOCITY_THRESHOLD)
+          ) {
+            shift(1);
+          } else if (
+            e.translationX > SWIPE_THRESHOLD ||
+            (e.translationX > 20 && e.velocityX > VELOCITY_THRESHOLD)
+          ) {
+            shift(-1);
+          }
+        }),
+    [view, shift]
   );
 
   const drill = useCallback((v: ViewMode, date?: Date) => {
@@ -126,12 +299,19 @@ export default function HomeScreen() {
       }
       const hash = await hashPin(userId, pinValue);
       await setPinHash({ pinHash: hash });
+      activePinHashRef.current = hash;
+      await setCachedPinHash(userId, hash);
+      setActivePinHash(hash);
       setUnlocked(true);
       closePin(true);
       return;
     }
     const hash = await hashPin(userId, pinValue);
-    if (settings?.pinHash && hash === settings.pinHash) {
+    const ok = await verifyPin({ pinHash: hash });
+    if (ok) {
+      activePinHashRef.current = hash;
+      await setCachedPinHash(userId, hash);
+      setActivePinHash(hash);
       setUnlocked(true);
       closePin(true);
     } else {
@@ -139,9 +319,23 @@ export default function HomeScreen() {
     }
   };
 
+  const submitBiometricHash = async (cachedHash: string) => {
+    if (!userId) return;
+    const ok = await verifyPin({ pinHash: cachedHash });
+    if (ok) {
+      activePinHashRef.current = cachedHash;
+      setActivePinHash(cachedHash);
+      setUnlocked(true);
+      closePin(true);
+    } else {
+      await clearCachedPinHash(userId);
+      setPinError('PIN changed. Please enter PIN.');
+    }
+  };
+
   const needPin = useCallback(async (): Promise<boolean> => {
-    if (unlocked) return true;
-    if (!settings?.pinHash) return askPin('set');
+    if (unlocked && activePinHashRef.current) return true;
+    if (!settings?.hasPin) return askPin('set');
     return askPin('check');
   }, [unlocked, settings, askPin]);
 
@@ -154,16 +348,41 @@ export default function HomeScreen() {
   };
 
   const toggleStar = async (note: Note) => {
-    if (!note.important && !(await needPin())) return;
-    await setImportant({ id: note._id as any, important: !note.important });
+    try {
+      if ((note.isLocked || !note.important || !unlocked) && !(await needPin())) return;
+      await setImportant({
+        id: note._id as any,
+        important: !note.important,
+        pinHash: activePinHashRef.current ?? undefined,
+      });
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Could not update note');
+    }
   };
 
+  const handleOpenNote = async (n: Note) => {
+    if (n.isLocked || (n.important && !unlocked)) {
+      const ok = await needPin();
+      if (!ok) return;
+      const fresh = allNotes.find((item) => item._id === n._id && !item.isLocked);
+      if (fresh) n = fresh;
+    }
+    setEditNote(n);
+    setSheetOpen(true);
+  };
+
+  useEffect(() => {
+    if (!sheetOpen || !editNote) return;
+    const current = allNotes.find((n) => n._id === editNote._id);
+    if (current && !current.isLocked && editNote.isLocked) {
+      setEditNote(current);
+    }
+  }, [allNotes, editNote, sheetOpen]);
+
   const uploadDrafts = async (drafts: DraftPhoto[]): Promise<string[]> => {
-    const ids: string[] = [];
-    for (const p of drafts) {
-      if (p.kind === 'stored') {
-        ids.push(p.storageId);
-      } else {
+    return Promise.all(
+      drafts.map(async (p) => {
+        if (p.kind === 'stored') return p.storageId;
         const url = (await getUploadUrl({})) as string;
         const response = await fetch(p.uri);
         const blob = await response.blob();
@@ -174,10 +393,9 @@ export default function HomeScreen() {
         });
         if (!res.ok) throw new Error('Upload failed');
         const { storageId } = (await res.json()) as { storageId: string };
-        ids.push(storageId);
-      }
-    }
-    return ids;
+        return storageId;
+      })
+    );
   };
 
   const handleSaveNote = async (
@@ -185,26 +403,65 @@ export default function HomeScreen() {
     draftPhotos: DraftPhoto[],
     editId: string | null
   ) => {
+    if (editId) {
+      const note =
+        allNotes.find((n) => n._id === editId) ??
+        (editNote?._id === editId ? editNote : null);
+      if (
+        (note?.important || note?.isLocked) &&
+        (!unlocked || !activePinHashRef.current)
+      ) {
+        const ok = await needPin();
+        if (!ok) return false;
+      }
+    }
     const photoIds = (await uploadDrafts(draftPhotos)) as any;
     if (editId) {
-      await updateNote({ id: editId as any, body, photoIds });
+      await updateNote({
+        id: editId as any,
+        body,
+        photoIds,
+        pinHash: activePinHashRef.current ?? undefined,
+      });
     } else {
       const base = sameDay(cursor, new Date())
         ? Date.now()
-        : startOfDay(cursor).getTime() + new Date().getHours() * 3600000;
+        : startOfDay(cursor).getTime() +
+          (Date.now() - startOfDay(new Date()).getTime());
       await createNote({ body, photoIds, createdAt: base });
     }
+    return true;
   };
 
   const handleDeleteNote = async (id: string) => {
-    await removeNote({ id: id as any });
+    const note =
+      allNotes.find((n) => n._id === id) ??
+      (editNote?._id === id ? editNote : null);
+    if (
+      (note?.important || note?.isLocked) &&
+      (!unlocked || !activePinHashRef.current)
+    ) {
+      const ok = await needPin();
+      if (!ok) return false;
+    }
+    await removeNote({
+      id: id as any,
+      pinHash: activePinHashRef.current ?? undefined,
+    });
+    return true;
   };
 
   const handleSignOut = () => {
-    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: () => signOut() },
-    ]);
+    setConfirmSignOut(true);
+  };
+
+  const onConfirmSignOut = async () => {
+    setConfirmSignOut(false);
+    activePinHashRef.current = null;
+    setActivePinHash(null);
+    setUnlocked(false);
+    if (userId) await clearCachedPinHash(userId);
+    signOut();
   };
 
   if (!isLoaded) {
@@ -219,14 +476,6 @@ export default function HomeScreen() {
     return <AuthView />;
   }
 
-  const dayNotes = allNotes
-    .filter((n) => sameDay(new Date(n.createdAt), cursor))
-    .sort((a, b) => a.createdAt - b.createdAt);
-
-  const importantNotes = allNotes
-    .filter((n) => n.important)
-    .sort((a, b) => b.createdAt - a.createdAt);
-
   const offToday = !(sameDay(cursor, new Date()) && view === 'day');
 
   const dateHeading =
@@ -239,7 +488,10 @@ export default function HomeScreen() {
       : `Important · ${importantNotes.length}`;
 
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.root, { backgroundColor: colors.background }]}
+      edges={['top', 'bottom', 'left', 'right']}
+    >
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <View style={styles.topRow}>
@@ -329,7 +581,20 @@ export default function HomeScreen() {
           </Text>
 
           <View style={styles.actionGroup}>
-            {view !== 'important' && (
+            {view === 'important' ? (
+              <TouchableOpacity
+                style={[styles.iconButton, { backgroundColor: colors.backgroundElement }]}
+                onPress={() => {
+                  activePinHashRef.current = null;
+                  setActivePinHash(null);
+                  setUnlocked(false);
+                  setView('day');
+                }}
+                hitSlop={6}
+              >
+                <Feather name="lock" size={16} color={colors.text} />
+              </TouchableOpacity>
+            ) : (
               <>
                 <TouchableOpacity
                   style={[styles.iconButton, { backgroundColor: colors.backgroundElement }]}
@@ -349,6 +614,68 @@ export default function HomeScreen() {
             )}
           </View>
         </View>
+
+        {activeTags.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tagBar}
+          >
+            <TouchableOpacity
+              style={[
+                styles.tagPill,
+                {
+                  backgroundColor:
+                    selectedTag === null ? colors.primary : colors.backgroundElement,
+                  borderColor: colors.border,
+                },
+              ]}
+              onPress={() => setSelectedTag(null)}
+            >
+              <Text
+                style={[
+                  styles.tagText,
+                  {
+                    color:
+                      selectedTag === null
+                        ? colors.primaryForeground
+                        : colors.textSecondary,
+                  },
+                ]}
+              >
+                All
+              </Text>
+            </TouchableOpacity>
+            {activeTags.map((tag) => {
+              const active = selectedTag === tag;
+              return (
+                <TouchableOpacity
+                  key={tag}
+                  style={[
+                    styles.tagPill,
+                    {
+                      backgroundColor: active ? colors.primary : colors.backgroundElement,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                  onPress={() => setSelectedTag(active ? null : tag)}
+                >
+                  <Text
+                    style={[
+                      styles.tagText,
+                      {
+                        color: active ? colors.primaryForeground : colors.textSecondary,
+                        fontWeight: active ? '600' : '500',
+                      },
+                    ]}
+                  >
+                    {tag}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
       </View>
 
       {/* Main Content View */}
@@ -357,45 +684,47 @@ export default function HomeScreen() {
           <ActivityIndicator size="small" color={colors.primary} />
         </View>
       ) : (
-        <View style={styles.content}>
-          {view === 'day' && (
-            <DayRail
-              notes={dayNotes}
-              cursor={cursor}
-              onStar={toggleStar}
-              onOpen={(n) => {
-                setEditNote(n);
-                setSheetOpen(true);
-              }}
-              onViewer={(list, i) => setViewer({ list, index: i })}
-            />
-          )}
-          {view === 'month' && (
-            <MonthView
-              cursor={cursor}
-              notes={allNotes}
-              onDrill={(d) => drill('day', d)}
-            />
-          )}
-          {view === 'year' && (
-            <YearView
-              cursor={cursor}
-              notes={allNotes}
-              onDrill={(d) => drill('month', d)}
-            />
-          )}
-          {view === 'important' && (
-            <ImportantView
-              notes={importantNotes}
-              onStar={toggleStar}
-              onOpen={(n) => {
-                setEditNote(n);
-                setSheetOpen(true);
-              }}
-              onViewer={(list, i) => setViewer({ list, index: i })}
-            />
-          )}
-        </View>
+        <GestureDetector gesture={panGesture}>
+          <View style={styles.content}>
+            {view === 'day' && (
+              <DayRail
+                notes={dayNotes}
+                cursor={cursor}
+                onStar={toggleStar}
+                onOpen={handleOpenNote}
+                onViewer={(list, i) => setViewer({ list, index: i })}
+                unlocked={unlocked}
+                onSelectTag={(t) => setSelectedTag(t)}
+              />
+            )}
+            {view === 'month' && (
+              <MonthView
+                cursor={cursor}
+                notes={visibleNotes}
+                onDrill={(d) => drill('day', d)}
+                unlocked={unlocked}
+              />
+            )}
+            {view === 'year' && (
+              <YearView
+                cursor={cursor}
+                notes={visibleNotes}
+                onDrill={(d) => drill('month', d)}
+                unlocked={unlocked}
+              />
+            )}
+            {view === 'important' && (
+              <ImportantView
+                notes={importantNotes}
+                onStar={toggleStar}
+                onOpen={handleOpenNote}
+                onViewer={(list, i) => setViewer({ list, index: i })}
+                unlocked={unlocked}
+                onSelectTag={(t) => setSelectedTag(t)}
+              />
+            )}
+          </View>
+        </GestureDetector>
       )}
 
       {/* Back to today floating button */}
@@ -429,7 +758,7 @@ export default function HomeScreen() {
       {/* Note Compose / Edit Sheet */}
       <NoteSheet
         visible={sheetOpen}
-        editNote={editNote}
+        editNote={activeEditNote}
         cursor={cursor}
         onClose={() => setSheetOpen(false)}
         onSave={handleSaveNote}
@@ -441,8 +770,10 @@ export default function HomeScreen() {
         visible={pinOpen}
         mode={pinMode}
         error={pinError}
+        userId={userId ?? undefined}
         onCancel={() => closePin(false)}
         onSubmit={submitPin}
+        onBiometricSuccess={submitBiometricHash}
       />
 
       {/* Search Dialog */}
@@ -471,6 +802,18 @@ export default function HomeScreen() {
           onNav={(i) => setViewer((v) => (v ? { ...v, index: i } : v))}
         />
       )}
+
+      {/* Sign Out Confirmation Dialog */}
+      <ConfirmDialog
+        visible={confirmSignOut}
+        title="Sign out"
+        message="Are you sure you want to sign out?"
+        confirmText="Sign out"
+        cancelText="Cancel"
+        isDestructive
+        onCancel={() => setConfirmSignOut(false)}
+        onConfirm={onConfirmSignOut}
+      />
     </SafeAreaView>
   );
 }
@@ -536,6 +879,21 @@ const styles = StyleSheet.create({
   dateHeading: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  tagBar: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingTop: Spacing.two,
+    paddingBottom: 2,
+  },
+  tagPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 9999,
+    borderWidth: 1,
+  },
+  tagText: {
+    fontSize: 12,
   },
   content: {
     flex: 1,

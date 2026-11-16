@@ -36,11 +36,29 @@ export function SearchDialog({
 
   const [query, setQuery] = useState('');
 
+  const activeTags = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const note of notes) {
+      if (note.isLocked || (note.important && !unlocked)) continue;
+      const tags = note.tags ?? [];
+      for (const tag of tags) {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1);
+      }
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([tag]) => tag);
+  }, [notes, unlocked]);
+
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
     return notes
-      .filter((n) => n.body.toLowerCase().includes(q))
+      .filter((n) => {
+        if (n.body.toLowerCase().includes(q)) return true;
+        if (n.tags?.some((t) => t.toLowerCase().includes(q))) return true;
+        return false;
+      })
       .sort((a, b) => b.createdAt - a.createdAt);
   }, [notes, query]);
 
@@ -90,9 +108,34 @@ export function SearchDialog({
 
           <ScrollView style={styles.resultsList}>
             {!query.trim() ? (
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                Type to search notes
-              </Text>
+              <View style={styles.tagSection}>
+                {activeTags.length > 0 && (
+                  <View style={styles.tagWrapper}>
+                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+                      TAGS
+                    </Text>
+                    <View style={styles.tagGrid}>
+                      {activeTags.map((tag) => (
+                        <TouchableOpacity
+                          key={tag}
+                          style={[
+                            styles.dialogTagPill,
+                            { backgroundColor: colors.backgroundElement, borderColor: colors.border },
+                          ]}
+                          onPress={() => setQuery(tag)}
+                        >
+                          <Text style={[styles.dialogTagText, { color: colors.textSecondary }]}>
+                            {tag}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                  Type to search notes
+                </Text>
+              </View>
             ) : matches.length === 0 ? (
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
                 No matching notes found
@@ -203,6 +246,34 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: Spacing.five,
     fontSize: 13,
+  },
+  tagSection: {
+    paddingVertical: Spacing.two,
+  },
+  tagWrapper: {
+    marginBottom: Spacing.three,
+  },
+  sectionTitle: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 1.5,
+    marginBottom: Spacing.two,
+    textTransform: 'uppercase',
+  },
+  tagGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  dialogTagPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 9999,
+    borderWidth: 1,
+  },
+  dialogTagText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   item: {
     paddingVertical: Spacing.two,

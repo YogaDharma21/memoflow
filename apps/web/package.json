@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.14",
+    "@workspace/convex": "workspace:*",
     "@workspace/ui": "workspace:*",
     "convex": "^1.46.0",
     "lucide-react": "^1.55.0",

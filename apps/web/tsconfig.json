@@ -3,7 +3,12 @@
   "compilerOptions": {
     "paths": {
       "@/*": ["./*"],
-      "@workspace/ui/*": ["../../packages/ui/src/*"]
+      "@workspace/ui/*": ["../../packages/ui/src/*"],
+      "@workspace/convex/api": ["../../packages/convex/convex/_generated/api"],
+      "@workspace/convex/dataModel": ["../../packages/convex/convex/_generated/dataModel"],
+      "@workspace/convex/server": ["../../packages/convex/convex/_generated/server"],
+      "@workspace/convex": ["../../packages/convex/convex/_generated/api"],
+      "@workspace/convex/*": ["../../packages/convex/convex/*"]
     },
     "plugins": [
       {

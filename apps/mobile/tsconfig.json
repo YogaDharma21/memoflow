@@ -8,6 +8,21 @@
       ],
       "@/assets/*": [
         "./assets/*"
+      ],
+      "@workspace/convex/api": [
+        "../../packages/convex/convex/_generated/api"
+      ],
+      "@workspace/convex/dataModel": [
+        "../../packages/convex/convex/_generated/dataModel"
+      ],
+      "@workspace/convex/server": [
+        "../../packages/convex/convex/_generated/server"
+      ],
+      "@workspace/convex": [
+        "../../packages/convex/convex/_generated/api"
+      ],
+      "@workspace/convex/*": [
+        "../../packages/convex/convex/*"
       ]
     }
   },

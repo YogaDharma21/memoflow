@@ -14,6 +14,7 @@ type Props = {
   cursor: Date;
   notes: Note[];
   onDrill: (d: Date) => void;
+  unlocked?: boolean;
 };
 
 const DOW = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
@@ -40,7 +41,7 @@ function CountDots({ count, color, emptyColor }: { count: number; color: string;
   );
 }
 
-export function MonthView({ cursor, notes, onDrill }: Props) {
+export function MonthView({ cursor, notes, onDrill, unlocked }: Props) {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
 
@@ -95,9 +96,11 @@ export function MonthView({ cursor, notes, onDrill }: Props) {
                     style={[styles.previewText, { color: colors.textSecondary }]}
                   >
                     {list.length
-                      ? list[0]?.body.trim()
-                        ? list[0]?.body
-                        : 'photo'
+                      ? list[0]?.isLocked || (list[0]?.important && !unlocked)
+                        ? '🔒 Locked note'
+                        : list[0]?.body.trim()
+                          ? list[0]?.body
+                          : 'photo'
                       : '—'}
                   </Text>
                   <CountDots

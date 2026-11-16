@@ -8,6 +8,8 @@ export type Note = {
   important: boolean;
   createdAt: number;
   ownerId: string;
+  isLocked?: boolean;
+  tags?: string[];
 };
 
 export type DraftPhoto =
